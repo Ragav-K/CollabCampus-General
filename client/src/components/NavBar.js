@@ -23,11 +23,11 @@ export default function NavBar({ user, onLogout }) {
   return (
     <header style={styles.header}>
       <div style={styles.left}>
-        <div style={styles.brand} onClick={() => (navigate("/"), setOpen(false))}>
+        <div style={styles.brand} onClick={() => { navigate("/"); setOpen(false); }}>
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
-            <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="#06b6d4" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M2 17l10 5 10-5" stroke="#7c3aed" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M2 12l10 5 10-5" stroke="#ef4444" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="#06b6d4" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M2 17l10 5 10-5" stroke="#7c3aed" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M2 12l10 5 10-5" stroke="#ef4444" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span style={styles.title}>CollabCampus</span>
         </div>
