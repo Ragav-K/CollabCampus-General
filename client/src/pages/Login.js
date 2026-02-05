@@ -16,7 +16,7 @@ export default function Login({ setUser }) {            // <-- accept setUser pr
     e.preventDefault();
     setErr("");
     if (!form.email || !form.password) { setErr("Email & password required"); return; }
-    if (!form.email.endsWith("@kpriet.ac.in")) { setErr("Only @kpriet.ac.in emails are allowed"); return; }
+
 
     setLoading(true);
     try {
