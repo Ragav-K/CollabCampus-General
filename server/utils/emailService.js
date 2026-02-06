@@ -4,15 +4,27 @@ import nodemailer from "nodemailer";
 // Create reusable transporter object using SMTP transport
 const createTransporter = () => {
   // Check if email is configured
-  if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.warn("⚠️  Email service not configured. Set EMAIL_HOST, EMAIL_USER, and EMAIL_PASS in .env");
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.warn("⚠️  Email service not configured. Set EMAIL_USER and EMAIL_PASS in .env");
     return null;
   }
 
+  // Use the built-in 'gmail' service if configured (simplifies port/secure settings)
+  if (process.env.EMAIL_HOST === "smtp.gmail.com" || !process.env.EMAIL_HOST) {
+    return nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+  }
+
+  // Fallback for custom SMTP
   return nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: parseInt(process.env.EMAIL_PORT || "587"),
-    secure: process.env.EMAIL_SECURE === "true", // true for 465, false for other ports
+    secure: process.env.EMAIL_SECURE === "true",
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
@@ -28,7 +40,7 @@ const createTransporter = () => {
  */
 export const sendPasswordResetEmail = async (to, resetToken, resetUrl) => {
   const transporter = createTransporter();
-  
+
   if (!transporter) {
     console.error("Email service not configured. Cannot send password reset email.");
     throw new Error("Email service not configured");
@@ -131,7 +143,7 @@ The CollabCampus Team
  */
 export const sendSignupOTPEmail = async (to, otp, name = "User") => {
   const transporter = createTransporter();
-  
+
   if (!transporter) {
     console.error("Email service not configured. Cannot send OTP email.");
     throw new Error("Email service not configured");
@@ -219,7 +231,7 @@ The CollabCampus Team
  */
 export const testEmailConnection = async () => {
   const transporter = createTransporter();
-  
+
   if (!transporter) {
     return { success: false, message: "Email service not configured" };
   }
