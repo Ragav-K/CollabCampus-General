@@ -3,32 +3,21 @@ import nodemailer from "nodemailer";
 
 // Create reusable transporter object using SMTP transport
 const createTransporter = () => {
-  // Check if email is configured
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.warn("⚠️  Email service not configured. Set EMAIL_USER and EMAIL_PASS in .env");
+    console.warn("⚠️ Email service not configured.");
     return null;
   }
 
-  // Use the built-in 'gmail' service if configured (simplifies port/secure settings)
-  if (process.env.EMAIL_HOST === "smtp.gmail.com" || !process.env.EMAIL_HOST) {
-    return nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-  }
-
-  // Fallback for custom SMTP
   return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT || "587"),
-    secure: process.env.EMAIL_SECURE === "true",
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true, // use SSL
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
+    // Force IPv4 to prevent timeouts on some cloud providers
+    authMethod: 'PLAIN',
   });
 };
 
