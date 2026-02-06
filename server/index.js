@@ -197,12 +197,20 @@ authRouter.post("/signup", async (req, res) => {
       await user.save();
     }
 
-    await sendSignupOTPEmail(lowerEmail, otp, user.name);
-
-    res.json({
-      message: "OTP sent to your email",
-      email: lowerEmail,
-    });
+    try {
+      await sendSignupOTPEmail(lowerEmail, otp, user.name);
+      res.json({
+        message: "OTP sent to your email",
+        email: lowerEmail,
+      });
+    } catch (emailErr) {
+      console.warn("⚠️ Email service failed, returning OTP for fallback:", emailErr.message);
+      res.json({
+        message: "Email service failed. Use this OTP.",
+        email: lowerEmail,
+        otp: otp, // Fallback: return OTP to client so user isn't stuck
+      });
+    }
   } catch (err) {
     console.error("Signup error:", err);
     res.status(500).json({ message: "Server error" });
