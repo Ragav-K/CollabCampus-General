@@ -1,8 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-
-// IMPORTANT: API_BASE points to http://localhost:5000/api
-const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5000/api";
+import axios from "axios";
 
 export default function Signup({ setUser }) {
   const navigate = useNavigate();
@@ -35,21 +33,14 @@ export default function Signup({ setUser }) {
     setLoading(true);
     try {
       const name = form.name.trim() || form.email.split("@")[0];
-      const url = `${API_BASE}/auth/signup`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email: form.email.trim(), password: form.password })
+      const url = `${process.env.REACT_APP_API_URL}/api/auth/signup`;
+      const res = await axios.post(url, {
+        name,
+        email: form.email.trim(),
+        password: form.password
       });
 
-      let data = null;
-      try { data = await res.json(); } catch (parseErr) { /* ignore */ }
-
-      if (!res.ok) {
-        setErr(data?.message || "Signup failed");
-        setLoading(false);
-        return;
-      }
+      const data = res.data;
 
       // If OTP is returned (email service not configured), show it
       if (data.otp) {
@@ -62,7 +53,7 @@ export default function Signup({ setUser }) {
       setStep(2);
     } catch (error) {
       console.error("Signup error:", error);
-      setErr("Server error. Try again later.");
+      setErr(error.response?.data?.message || "Signup failed");
     } finally {
       setLoading(false);
     }
@@ -80,21 +71,13 @@ export default function Signup({ setUser }) {
 
     setLoading(true);
     try {
-      const url = `${API_BASE}/auth/verify-otp`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailForVerification, otp: otp.trim() })
+      const url = `${process.env.REACT_APP_API_URL}/api/auth/verify-otp`;
+      const res = await axios.post(url, {
+        email: emailForVerification,
+        otp: otp.trim()
       });
 
-      let data = null;
-      try { data = await res.json(); } catch (parseErr) { /* ignore */ }
-
-      if (!res.ok) {
-        setErr(data?.message || "OTP verification failed");
-        setLoading(false);
-        return;
-      }
+      const data = res.data;
 
       // Account created successfully
       const userToStore = data?.user || { email: emailForVerification };
@@ -109,7 +92,7 @@ export default function Signup({ setUser }) {
       }, 1500);
     } catch (error) {
       console.error("Verify OTP error:", error);
-      setErr("Server error. Try again later.");
+      setErr(error.response?.data?.message || "OTP verification failed");
     } finally {
       setLoading(false);
     }
@@ -121,21 +104,12 @@ export default function Signup({ setUser }) {
     setLoading(true);
 
     try {
-      const url = `${API_BASE}/auth/resend-otp`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailForVerification })
+      const url = `${process.env.REACT_APP_API_URL}/api/auth/resend-otp`;
+      const res = await axios.post(url, {
+        email: emailForVerification
       });
 
-      let data = null;
-      try { data = await res.json(); } catch (parseErr) { /* ignore */ }
-
-      if (!res.ok) {
-        setErr(data?.message || "Failed to resend OTP");
-        setLoading(false);
-        return;
-      }
+      const data = res.data;
 
       if (data.otp) {
         setSuccess(`New OTP: ${data.otp} (Email service not configured)`);
@@ -144,7 +118,7 @@ export default function Signup({ setUser }) {
       }
     } catch (error) {
       console.error("Resend OTP error:", error);
-      setErr("Server error. Try again later.");
+      setErr(error.response?.data?.message || "Failed to resend OTP");
     } finally {
       setLoading(false);
     }

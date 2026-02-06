@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-
-const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5000/api";
+import axios from 'axios';
 
 function CreateTeam({ user }) {
   const [leaderName, setLeaderName] = useState('');
@@ -41,33 +40,25 @@ function CreateTeam({ user }) {
     };
 
     try {
-      const response = await fetch(`${API_BASE}/teams`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newTeam)
-      });
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/teams`, newTeam);
 
-      if (response.ok) {
-        alert('✅ Team created successfully!');
-        // Reset form
-        setLeaderName('');
-        setLeaderDept('');
-        setLeaderYear('');
-        setLeaderGender('');
-        setHackathonName('');
-        setHackathonPlace('');
-        setHackathonDate('');
-        setLastDate('');
-        setPreferredGender('No Preference');
-        setProblemStatement('');
-        setSkillsNeeded('');
-        setMaxMembers('');
-      } else {
-        alert('❌ Failed to create team.');
-      }
+      alert('✅ Team created successfully!');
+      // Reset form
+      setLeaderName('');
+      setLeaderDept('');
+      setLeaderYear('');
+      setLeaderGender('');
+      setHackathonName('');
+      setHackathonPlace('');
+      setHackathonDate('');
+      setLastDate('');
+      setPreferredGender('No Preference');
+      setProblemStatement('');
+      setSkillsNeeded('');
+      setMaxMembers('');
     } catch (err) {
       console.error(err);
-      alert('❌ Server error.');
+      alert(err.response?.data?.message || '❌ Failed to create team.');
     }
   };
 

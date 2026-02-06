@@ -1,7 +1,6 @@
 // src/pages/CreatedTeams.js
 import React, { useEffect, useState, useCallback } from "react";
-
-const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5000/api";
+import axios from "axios";
 
 export default function CreatedTeams({ user }) {
   const [teams, setTeams] = useState([]);
@@ -21,39 +20,10 @@ export default function CreatedTeams({ user }) {
     }
 
     try {
-      const url = `${API_BASE}/teams/created/${encodeURIComponent(user.email)}`;
-      console.log("Fetching created teams ->", url);
+      const url = `${process.env.REACT_APP_API_URL}/api/teams/created/${encodeURIComponent(user.email)}`;
+      const res = await axios.get(url);
+      const fetchedTeams = Array.isArray(res.data) ? res.data : [];
 
-      const res = await fetch(url, { credentials: "same-origin" });
-      const text = await res.text();
-
-      // If server returned non-JSON (HTML error page), show it
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        // not JSON
-        if (!res.ok) {
-          console.error("Non-JSON response fetching created teams:", text);
-          setError(`Server error: ${res.status} — see console for details`);
-          setLoading(false);
-          return;
-        }
-        // if ok but not JSON, fail safely
-        console.warn("Fetched created teams, but response not JSON:", text);
-        setError("Unexpected server response (not JSON). Check backend.");
-        setLoading(false);
-        return;
-      }
-
-      if (!res.ok) {
-        console.error("Error response fetching teams:", data);
-        setError(data.message || `Error fetching teams (status ${res.status})`);
-        setLoading(false);
-        return;
-      }
-
-      const fetchedTeams = Array.isArray(data) ? data : [];
       // sort newest first (if not already)
       fetchedTeams.sort((a, b) => {
         // try to use created time from Mongo _id
@@ -68,23 +38,14 @@ export default function CreatedTeams({ user }) {
       const reqs = await Promise.all(
         fetchedTeams.map(async (team) => {
           try {
-            const r = await fetch(`${API_BASE}/requests/team/${team._id}`);
-            if (!r.ok) {
-              const txt = await r.text();
-              console.error("Failed to load requests for team", team._id, r.status, txt);
-              return { teamId: team._id, requests: [] };
-            }
-
-            const body = await r.json().catch((err) => {
-              console.warn("Non-JSON response for team requests", team._id, err);
-              return null;
-            });
+            const r = await axios.get(`${process.env.REACT_APP_API_URL}/api/requests/team/${team._id}`);
+            const body = r.data;
 
             const requests = Array.isArray(body?.requests)
               ? body.requests
               : Array.isArray(body)
-              ? body
-              : [];
+                ? body
+                : [];
 
             return { teamId: team._id, requests };
           } catch (err) {
@@ -100,7 +61,7 @@ export default function CreatedTeams({ user }) {
       setLoading(false);
     } catch (err) {
       console.error("Fetch created teams error:", err);
-      setError("Network or server error while fetching teams. See console.");
+      setError(err.response?.data?.message || err.message || "Network or server error while fetching teams.");
       setLoading(false);
     }
   }, [user]);
@@ -111,54 +72,36 @@ export default function CreatedTeams({ user }) {
 
   const handleAccept = async (requestId) => {
     try {
-      const url = `${API_BASE}/requests/${requestId}/accept`;
-      const res = await fetch(url, { method: "POST" });
-      if (!res.ok) {
-        const txt = await res.text();
-        console.error("Accept failed:", res.status, txt);
-        alert("Accept failed. See console.");
-        return;
-      }
+      const url = `${process.env.REACT_APP_API_URL}/api/requests/${requestId}/accept`;
+      await axios.post(url);
       // refresh
       await fetchTeamsAndRequests();
     } catch (err) {
       console.error("Accept request error:", err);
-      alert("Server error accepting request.");
+      alert(err.response?.data?.message || "Server error accepting request.");
     }
   };
 
   const handleDecline = async (requestId) => {
     try {
-      const url = `${API_BASE}/requests/${requestId}/decline`;
-      const res = await fetch(url, { method: "POST" });
-      if (!res.ok) {
-        const txt = await res.text();
-        console.error("Decline failed:", res.status, txt);
-        alert("Decline failed. See console.");
-        return;
-      }
+      const url = `${process.env.REACT_APP_API_URL}/api/requests/${requestId}/decline`;
+      await axios.post(url);
       await fetchTeamsAndRequests();
     } catch (err) {
       console.error("Decline request error:", err);
-      alert("Server error declining request.");
+      alert(err.response?.data?.message || "Server error declining request.");
     }
   };
 
   const handleDeleteTeam = async (teamId) => {
     if (!window.confirm("Delete this team? This removes all requests too.")) return;
     try {
-      const url = `${API_BASE}/teams/${teamId}`;
-      const res = await fetch(url, { method: "DELETE" });
-      if (!res.ok) {
-        const txt = await res.text();
-        console.error("Delete team failed:", res.status, txt);
-        alert("Delete failed. See console.");
-        return;
-      }
+      const url = `${process.env.REACT_APP_API_URL}/api/teams/${teamId}`;
+      await axios.delete(url);
       await fetchTeamsAndRequests();
     } catch (err) {
       console.error("Delete team error:", err);
-      alert("Server error deleting team.");
+      alert(err.response?.data?.message || "Server error deleting team.");
     }
   };
 
@@ -211,7 +154,7 @@ export default function CreatedTeams({ user }) {
                   {accepted.map(m => (
                     <li key={m._id}>
                       {m.userName} ({m.userEmail}) · Dept: {m.userDept || "-"} · Year: {m.userYear || "-"} · Gender: {m.userGender || "-"}
-                      {m.userWhatsapp ? <><br/>📱 {m.userWhatsapp}</> : null}
+                      {m.userWhatsapp ? <><br />📱 {m.userWhatsapp}</> : null}
                     </li>
                   ))}
                 </ul>

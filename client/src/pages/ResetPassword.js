@@ -1,14 +1,13 @@
 // src/pages/ResetPassword.js
 import React, { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-
-const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5000/api";
+import axios from "axios";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const urlToken = searchParams.get("token");
-  
+
   const [step, setStep] = useState(urlToken ? 2 : 1); // 1 = request token, 2 = reset password
   const [email, setEmail] = useState("");
   const [token, setToken] = useState(urlToken || "");
@@ -25,22 +24,14 @@ const ResetPassword = () => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/auth/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/forgot-password`, {
+        email: email.trim()
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message || "Failed to generate reset token");
-        setLoading(false);
-        return;
-      }
+      const data = res.data;
 
       setSuccess(data.message || "Password reset email sent! Please check your inbox.");
-      
+
       // If email service is not configured, show token (fallback)
       if (data.resetToken) {
         setToken(data.resetToken);
@@ -54,7 +45,7 @@ const ResetPassword = () => {
       }
     } catch (err) {
       console.error("Request token error:", err);
-      setError("Server error. Please try again later.");
+      setError(err.response?.data?.message || "Failed to generate reset token");
     } finally {
       setLoading(false);
     }
@@ -78,22 +69,12 @@ const ResetPassword = () => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/auth/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token: token.trim(),
-          newPassword: newPassword,
-        }),
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/reset-password`, {
+        token: token.trim(),
+        newPassword: newPassword,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message || "Failed to reset password");
-        setLoading(false);
-        return;
-      }
+      const data = res.data;
 
       setSuccess(data.message || "Password reset successful!");
       setTimeout(() => {
@@ -101,7 +82,7 @@ const ResetPassword = () => {
       }, 2000);
     } catch (err) {
       console.error("Reset password error:", err);
-      setError("Server error. Please try again later.");
+      setError(err.response?.data?.message || "Failed to reset password");
     } finally {
       setLoading(false);
     }

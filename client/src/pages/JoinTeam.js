@@ -2,7 +2,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 
-const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5000/api";
+// API URL from env
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 export default function JoinTeam({ user }) {
   const [teams, setTeams] = useState([]);
@@ -24,7 +25,7 @@ export default function JoinTeam({ user }) {
 
   const fetchTeams = useCallback(async () => {
     try {
-      const res = await axios.get(`${API_BASE}/teams`, {
+      const res = await axios.get(`${API_URL}/api/teams`, {
         params: {
           email: user.email,
           excludeRequested: user.email,
@@ -66,7 +67,7 @@ export default function JoinTeam({ user }) {
   const handleRequest = async (e, teamId) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_BASE}/teams/${teamId}/request`, {
+      await axios.post(`${API_URL}/api/teams/${teamId}/request`, {
         ...formData,
         userEmail: user.email,
       });
@@ -201,103 +202,103 @@ export default function JoinTeam({ user }) {
                 ✅ Request Already Sent
               </p>
             ) : ( */}
-              <>
-                <button
-                  onClick={() => toggleForm(team._id)}
+            <>
+              <button
+                onClick={() => toggleForm(team._id)}
+                style={{
+                  background: "#2563eb",
+                  color: "white",
+                  padding: "6px 10px",
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                {showForm[team._id]
+                  ? "🔼 Hide Join Form"
+                  : "🔽 Show Join Form"}
+              </button>
+
+              {showForm[team._id] && (
+                <form
+                  onSubmit={(e) => handleRequest(e, team._id)}
                   style={{
-                    background: "#2563eb",
-                    color: "white",
-                    padding: "6px 10px",
-                    border: "none",
-                    borderRadius: 6,
-                    cursor: "pointer",
+                    marginTop: "10px",
+                    borderTop: "1px solid #ddd",
+                    paddingTop: "10px",
                   }}
                 >
-                  {showForm[team._id]
-                    ? "🔼 Hide Join Form"
-                    : "🔽 Show Join Form"}
-                </button>
-
-                {showForm[team._id] && (
-                  <form
-                    onSubmit={(e) => handleRequest(e, team._id)}
+                  <input
+                    type="text"
+                    name="userName"
+                    placeholder="Your Name"
+                    value={formData.userName}
+                    onChange={handleChange}
+                    required
+                  />
+                  <input
+                    type="text"
+                    name="userDept"
+                    placeholder="Department"
+                    value={formData.userDept}
+                    onChange={handleChange}
+                    required
+                  />
+                  <select
+                    name="userYear"
+                    value={formData.userYear}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">Select Year</option>
+                    <option value="I">I</option>
+                    <option value="II">II</option>
+                    <option value="III">III</option>
+                    <option value="IV">IV</option>
+                  </select>
+                  <select
+                    name="userGender"
+                    value={formData.userGender}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  <input
+                    type="text"
+                    name="userWhatsapp"
+                    placeholder="WhatsApp Number"
+                    value={formData.userWhatsapp}
+                    onChange={handleChange}
+                    required
+                  />
+                  <textarea
+                    name="userStrengths"
+                    placeholder="Your Strengths or Skills"
+                    value={formData.userStrengths}
+                    onChange={handleChange}
+                    required
+                  />
+                  <button
+                    type="submit"
                     style={{
                       marginTop: "10px",
-                      borderTop: "1px solid #ddd",
-                      paddingTop: "10px",
+                      background: "#10b981",
+                      color: "#fff",
+                      padding: "8px 12px",
+                      border: "none",
+                      borderRadius: 6,
+                      cursor: "pointer",
                     }}
                   >
-                    <input
-                      type="text"
-                      name="userName"
-                      placeholder="Your Name"
-                      value={formData.userName}
-                      onChange={handleChange}
-                      required
-                    />
-                    <input
-                      type="text"
-                      name="userDept"
-                      placeholder="Department"
-                      value={formData.userDept}
-                      onChange={handleChange}
-                      required
-                    />
-                    <select
-                      name="userYear"
-                      value={formData.userYear}
-                      onChange={handleChange}
-                      required
-                    >
-                      <option value="">Select Year</option>
-                      <option value="I">I</option>
-                      <option value="II">II</option>
-                      <option value="III">III</option>
-                      <option value="IV">IV</option>
-                    </select>
-                    <select
-                      name="userGender"
-                      value={formData.userGender}
-                      onChange={handleChange}
-                      required
-                    >
-                      <option value="">Select Gender</option>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Other">Other</option>
-                    </select>
-                    <input
-                      type="text"
-                      name="userWhatsapp"
-                      placeholder="WhatsApp Number"
-                      value={formData.userWhatsapp}
-                      onChange={handleChange}
-                      required
-                    />
-                    <textarea
-                      name="userStrengths"
-                      placeholder="Your Strengths or Skills"
-                      value={formData.userStrengths}
-                      onChange={handleChange}
-                      required
-                    />
-                    <button
-                      type="submit"
-                      style={{
-                        marginTop: "10px",
-                        background: "#10b981",
-                        color: "#fff",
-                        padding: "8px 12px",
-                        border: "none",
-                        borderRadius: 6,
-                        cursor: "pointer",
-                      }}
-                    >
-                      Request to Join
-                    </button>
-                  </form>
-                )}
-              </>
+                    Request to Join
+                  </button>
+                </form>
+              )}
+            </>
             {/* )} */}
           </div>
         ))

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-
-const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5000/api";
+import axios from "axios";
 
 export default function RequestedTeams({ user }) {
   const [requests, setRequests] = useState([]);
@@ -16,26 +15,18 @@ export default function RequestedTeams({ user }) {
     setError(null);
 
     try {
-      const res = await fetch(`${API_BASE}/requests/user/${encodeURIComponent(email)}`);
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("Failed to load requested teams:", res.status, text);
-        setError("Could not load your requests. Please try again later.");
-        setLoading(false);
-        return;
-      }
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/requests/user/${encodeURIComponent(email)}`);
 
-      const data = await res.json();
-      const sorted = Array.isArray(data)
-        ? data.sort(
-            (a, b) =>
-              new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-          )
+      const sorted = Array.isArray(res.data)
+        ? res.data.sort(
+          (a, b) =>
+            new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        )
         : [];
       setRequests(sorted);
     } catch (err) {
       console.error("Error fetching requested teams", err);
-      setError("Network error fetching requests.");
+      setError(err.response?.data?.message || err.message || "Network error fetching requests.");
     } finally {
       setLoading(false);
     }
@@ -48,16 +39,9 @@ export default function RequestedTeams({ user }) {
   const handleWithdraw = useCallback(
     async (teamId) => {
       try {
-        const res = await fetch(
-          `${API_BASE}/requests/${encodeURIComponent(teamId)}/${encodeURIComponent(email)}`,
-          { method: "DELETE" }
+        await axios.delete(
+          `${process.env.REACT_APP_API_URL}/api/requests/${encodeURIComponent(teamId)}/${encodeURIComponent(email)}`
         );
-        if (!res.ok) {
-          const text = await res.text();
-          console.error("Withdraw failed:", res.status, text);
-          alert("Could not withdraw. Try again.");
-          return;
-        }
         setRequests((prev) => prev.filter((req) => String(req.teamId) !== String(teamId)));
       } catch (err) {
         console.error("Error withdrawing request", err);
@@ -130,4 +114,3 @@ export default function RequestedTeams({ user }) {
     </div>
   );
 }
-  

@@ -1,8 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-
-// note: API_BASE includes /api so full endpoint becomes http://localhost:5000/api/auth/login
-const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5000/api";
+import axios from "axios";
 
 export default function Login({ setUser }) {            // <-- accept setUser prop
   const navigate = useNavigate();
@@ -17,27 +15,15 @@ export default function Login({ setUser }) {            // <-- accept setUser pr
     setErr("");
     if (!form.email || !form.password) { setErr("Email & password required"); return; }
 
-
     setLoading(true);
     try {
-      const url = `${API_BASE}/auth/login`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.email.trim(), password: form.password })
+      const url = `${process.env.REACT_APP_API_URL}/api/auth/login`;
+      const res = await axios.post(url, {
+        email: form.email.trim(),
+        password: form.password
       });
 
-      // try parse JSON but don't crash if response isn't JSON
-      let data = null;
-      try { data = await res.json(); } catch (e) { /* ignore parse error */ }
-
-      if (!res.ok) {
-        setErr(data?.message || "Login failed");
-        setLoading(false);
-        return;
-      }
-
-      const user = data?.user || { email: form.email.trim() };
+      const user = res.data.user || { email: form.email.trim() };
       // persist for refresh
       localStorage.setItem("user", JSON.stringify(user));
 
@@ -48,7 +34,7 @@ export default function Login({ setUser }) {            // <-- accept setUser pr
       navigate("/");
     } catch (error) {
       console.error("Login error:", error);
-      setErr("Server error. Try again later.");
+      setErr(error.response?.data?.message || "Login failed");
     } finally {
       setLoading(false);
     }
