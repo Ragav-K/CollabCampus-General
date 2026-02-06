@@ -40,7 +40,7 @@ function CreateTeam({ user }) {
     };
 
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/teams`, newTeam);
+      await axios.post(`${process.env.REACT_APP_API_URL}/api/teams`, newTeam);
 
       alert('✅ Team created successfully!');
       // Reset form
