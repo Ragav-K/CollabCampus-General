@@ -11,6 +11,7 @@ import crypto from "crypto";
 import {
   sendPasswordResetEmail,
   sendSignupOTPEmail,
+  testEmailConnection,
 } from "./utils/emailService.js";
 
 dotenv.config();
@@ -302,6 +303,16 @@ app.use("/api/auth", authRouter);
 // Health
 app.get("/api/health", (req, res) => {
   res.json({ ok: true });
+});
+
+// Test Email Connection (Debug)
+app.get("/api/test-email", async (req, res) => {
+  const result = await testEmailConnection();
+  if (result.success) {
+    res.json(result);
+  } else {
+    res.status(500).json(result);
+  }
 });
 
 // Create Team
