@@ -255,6 +255,49 @@ authRouter.post("/verify-otp", async (req, res) => {
   }
 });
 
+// Resend OTP
+authRouter.post("/resend-otp", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email required" });
+    }
+
+    const lowerEmail = email.toLowerCase();
+    const user = await User.findOne({ email: lowerEmail });
+
+    if (!user) {
+      return res.status(400).json({ message: "User not found" });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ message: "Account already verified" });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = Date.now() + 10 * 60 * 1000;
+
+    user.otp = otp;
+    user.otpExpiry = otpExpiry;
+    await user.save();
+
+    try {
+      await sendSignupOTPEmail(lowerEmail, otp, user.name);
+      res.json({ message: "OTP resent to your email" });
+    } catch (emailErr) {
+      console.warn("⚠️ Email service failed on resend:", emailErr.message);
+      res.json({
+        message: "Email service failed. Use this OTP.",
+        otp: otp,
+      });
+    }
+  } catch (err) {
+    console.error("Resend OTP error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // Login
 authRouter.post("/login", async (req, res) => {
   try {

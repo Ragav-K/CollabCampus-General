@@ -3,21 +3,22 @@ import nodemailer from "nodemailer";
 
 // Create reusable transporter object using SMTP transport
 const createTransporter = () => {
+  // Check if email is configured
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.warn("⚠️ Email service not configured.");
+    console.warn("⚠️ Email service not configured. Set EMAIL_USER and EMAIL_PASS.");
     return null;
   }
 
+  // Use environment variables directly so you can change settings in Render dashboard
+  // without redeploying code.
   return nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true, // use SSL
+    host: process.env.EMAIL_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.EMAIL_PORT || "587"),
+    secure: process.env.EMAIL_SECURE === "true", // true for 465, false for 587
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
-    // Force IPv4 to prevent timeouts on some cloud providers
-    authMethod: 'PLAIN',
   });
 };
 
