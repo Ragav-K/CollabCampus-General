@@ -1,38 +1,41 @@
 // server/utils/emailService.js
-// Uses Resend (HTTPS API) instead of SMTP — works on Render free tier
+// Uses Brevo (formerly Sendinblue) HTTPS API — works on Render free tier,
+// and can send to ANY email address without domain verification.
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL = process.env.EMAIL_FROM || "CollabCampus <onboarding@resend.dev>";
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const FROM_EMAIL = process.env.EMAIL_FROM_ADDRESS || "cc.collabcampus@gmail.com";
+const FROM_NAME = process.env.EMAIL_FROM_NAME || "CollabCampus";
 
 async function sendEmail({ to, subject, html, text }) {
-  if (!RESEND_API_KEY) {
-    console.warn("⚠️ RESEND_API_KEY not set. Cannot send email.");
+  if (!BREVO_API_KEY) {
+    console.warn("⚠️ BREVO_API_KEY not set. Cannot send email.");
     throw new Error("Email service not configured");
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${RESEND_API_KEY}`,
+      "api-key": BREVO_API_KEY,
       "Content-Type": "application/json",
+      "Accept": "application/json",
     },
     body: JSON.stringify({
-      from: FROM_EMAIL,
-      to: [to],
+      sender: { name: FROM_NAME, email: FROM_EMAIL },
+      to: [{ email: to }],
       subject,
-      html,
-      text,
+      htmlContent: html,
+      textContent: text,
     }),
   });
 
   const data = await response.json();
 
   if (!response.ok) {
-    console.error("❌ Resend API error:", data);
+    console.error("❌ Brevo API error:", data);
     throw new Error(data.message || "Failed to send email");
   }
 
-  console.log("✅ Email sent via Resend:", data.id);
+  console.log("✅ Email sent via Brevo:", data.messageId);
   return data;
 }
 
@@ -75,8 +78,6 @@ export const sendPasswordResetEmail = async (to, resetToken, resetUrl) => {
               <div class="warning">
                 <strong>⚠️ Important:</strong> This link will expire in 1 hour. If you didn't request this, please ignore this email.
               </div>
-              <p>If the button doesn't work, manually enter this reset token:</p>
-              <div class="token-box"><div class="token">${resetToken}</div></div>
               <p>Best regards,<br>The CollabCampus Team</p>
             </div>
             <div class="footer"><p>This is an automated email. Please do not reply.</p></div>
@@ -84,7 +85,7 @@ export const sendPasswordResetEmail = async (to, resetToken, resetUrl) => {
         </body>
       </html>
     `,
-    text: `Password Reset - CollabCampus\n\nClick this link: ${resetUrl}\n\nOr use token: ${resetToken}\n\nExpires in 1 hour.`,
+    text: `Password Reset - CollabCampus\n\nClick this link: ${resetUrl}\n\nExpires in 1 hour.`,
   });
 };
 
@@ -139,31 +140,25 @@ export const sendSignupOTPEmail = async (to, otp, name = "User") => {
  * Test email configuration
  */
 export const testEmailConnection = async () => {
-  if (!RESEND_API_KEY) {
-    return { success: false, message: "RESEND_API_KEY not configured" };
+  if (!BREVO_API_KEY) {
+    return { success: false, message: "BREVO_API_KEY not configured" };
   }
 
   try {
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
+    // Just verify the API key works by hitting the account endpoint
+    const response = await fetch("https://api.brevo.com/v3/account", {
       headers: {
-        "Authorization": `Bearer ${RESEND_API_KEY}`,
-        "Content-Type": "application/json",
+        "api-key": BREVO_API_KEY,
+        "Accept": "application/json",
       },
-      body: JSON.stringify({
-        from: FROM_EMAIL,
-        to: ["delivered@resend.dev"], // Resend's test address
-        subject: "CollabCampus Email Test",
-        html: "<p>Email service is working!</p>",
-      }),
     });
 
     const data = await response.json();
 
     if (response.ok) {
-      return { success: true, message: "Email service is configured correctly", id: data.id };
+      return { success: true, message: "Email service is configured correctly", email: data.email };
     } else {
-      return { success: false, message: data.message || "Resend API error" };
+      return { success: false, message: data.message || "Brevo API error" };
     }
   } catch (error) {
     return { success: false, message: `Error: ${error.message}` };
