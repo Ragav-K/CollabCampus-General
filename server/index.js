@@ -419,8 +419,130 @@ app.get("/api/teams", async (req, res) => {
   }
 });
 
+// Get Teams created by a specific leader
+app.get("/api/teams/created/:email", async (req, res) => {
+  try {
+    const email = decodeURIComponent(req.params.email).toLowerCase();
+    const teams = await Team.find({ leader: email }).sort({ createdAt: -1 }).lean();
+    res.json(teams);
+  } catch (err) {
+    console.error("Get created teams error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Delete a team (and its requests)
+app.delete("/api/teams/:teamId", async (req, res) => {
+  try {
+    await Team.findByIdAndDelete(req.params.teamId);
+    await JoinRequest.deleteMany({ teamId: req.params.teamId });
+    res.json({ message: "Team deleted" });
+  } catch (err) {
+    console.error("Delete team error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Submit a join request
+app.post("/api/requests", async (req, res) => {
+  try {
+    const request = new JoinRequest(req.body);
+    await request.save();
+    res.status(201).json({ message: "Request submitted", request });
+  } catch (err) {
+    console.error("Submit request error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get all requests for a specific team
+app.get("/api/requests/team/:teamId", async (req, res) => {
+  try {
+    const requests = await JoinRequest.find({ teamId: req.params.teamId }).lean();
+    res.json(requests);
+  } catch (err) {
+    console.error("Get team requests error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get all requests by a specific user
+app.get("/api/requests/user/:email", async (req, res) => {
+  try {
+    const email = decodeURIComponent(req.params.email).toLowerCase();
+    const requests = await JoinRequest.find({ userEmail: email }).sort({ createdAt: -1 }).lean();
+
+    // Attach team info to each request
+    const enriched = await Promise.all(
+      requests.map(async (req) => {
+        const team = await Team.findById(req.teamId).lean();
+        return { ...req, team: team || {} };
+      })
+    );
+
+    res.json(enriched);
+  } catch (err) {
+    console.error("Get user requests error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Accept a join request
+app.post("/api/requests/:requestId/accept", async (req, res) => {
+  try {
+    const request = await JoinRequest.findById(req.params.requestId);
+    if (!request) return res.status(404).json({ message: "Request not found" });
+
+    request.status = "accepted";
+    await request.save();
+
+    // Add user to team members
+    await Team.findByIdAndUpdate(request.teamId, {
+      $addToSet: { members: request.userEmail },
+    });
+
+    res.json({ message: "Request accepted" });
+  } catch (err) {
+    console.error("Accept request error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Decline a join request
+app.post("/api/requests/:requestId/decline", async (req, res) => {
+  try {
+    const request = await JoinRequest.findById(req.params.requestId);
+    if (!request) return res.status(404).json({ message: "Request not found" });
+
+    request.status = "declined";
+    await request.save();
+
+    res.json({ message: "Request declined" });
+  } catch (err) {
+    console.error("Decline request error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Withdraw a join request (user cancels their own pending request)
+app.delete("/api/requests/:teamId/:email", async (req, res) => {
+  try {
+    const email = decodeURIComponent(req.params.email).toLowerCase();
+    await JoinRequest.findOneAndDelete({
+      teamId: req.params.teamId,
+      userEmail: email,
+      status: "pending",
+    });
+    res.json({ message: "Request withdrawn" });
+  } catch (err) {
+    console.error("Withdraw request error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // ---------------- Start Server ----------------
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
+
