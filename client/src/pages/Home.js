@@ -6,7 +6,7 @@ const Home = ({ user }) => {
 
   return (
     <div style={{ textAlign: "center", marginTop: "60px" }}>
-      <h2>👋 Welcome, {user?.email}</h2>
+      <h2>👋 Welcome, {user?.name || user?.email}</h2>
       <p>Explore your dashboard and collaborate with peers!</p>
 
       <div style={{ marginTop: "30px" }}>

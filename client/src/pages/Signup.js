@@ -15,9 +15,9 @@ export default function Signup({ setUser }) {
   const handleChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
   const validate = () => {
-    const { email, password, confirmPassword } = form;
+    const { name, email, password, confirmPassword } = form;
+    if (!name.trim()) return "Name is required";
     if (!email) return "Email required";
-
     if (password.length < 6) return "Password must be at least 6 characters";
     if (password !== confirmPassword) return "Passwords do not match";
     return null;
@@ -32,7 +32,7 @@ export default function Signup({ setUser }) {
 
     setLoading(true);
     try {
-      const name = form.name.trim() || form.email.split("@")[0];
+      const name = form.name.trim();
       const url = `${process.env.REACT_APP_API_URL}/api/auth/signup`;
       const res = await axios.post(url, {
         name,
@@ -135,10 +135,11 @@ export default function Signup({ setUser }) {
           <form onSubmit={handleSignup} style={styles.form}>
             <input
               name="name"
-              placeholder="Name (optional)"
+              placeholder="Full Name"
               value={form.name}
               onChange={handleChange}
               style={styles.input}
+              required
             />
 
             <input
