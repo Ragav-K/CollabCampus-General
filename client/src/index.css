@@ -66,9 +66,6 @@ body {
   font-size: 15px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Ensure background fills behind safe areas */
-  padding-left: var(--safe-left);
-  padding-right: var(--safe-right);
 }
 
 a {
@@ -116,11 +113,10 @@ p {
 
 /* ── Layout ── */
 .container {
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
-  /* Horizontal padding respects safe areas on curved/notched screens */
-  padding-left: max(24px, var(--safe-left));
-  padding-right: max(24px, var(--safe-right));
+  padding-left: max(32px, env(safe-area-inset-left, 0px));
+  padding-right: max(32px, env(safe-area-inset-right, 0px));
 }
 
 .page {
@@ -134,17 +130,16 @@ p {
 .navbar {
   position: sticky;
   top: 0;
-  /* Grow height by safe-area-inset-top so content doesn't hide under status bar */
-  height: calc(var(--nav-h) + var(--safe-top));
   background: rgba(248, 247, 245, 0.92);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   z-index: 100;
   display: flex;
-  align-items: flex-end;
-  /* align to bottom so content sits below status bar */
-  padding-bottom: 0;
+  flex-direction: column;
+  /* padding-top fills the status-bar area on notched phones.
+     Resolves to 0px on desktop / non-notched devices. */
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 .navbar__inner {
@@ -153,8 +148,8 @@ p {
   gap: 32px;
   width: 100%;
   height: var(--nav-h);
-  padding-left: max(24px, var(--safe-left));
-  padding-right: max(24px, var(--safe-right));
+  padding-left: max(32px, env(safe-area-inset-left, 0px));
+  padding-right: max(32px, env(safe-area-inset-right, 0px));
 }
 
 .navbar__logo {
