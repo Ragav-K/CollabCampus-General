@@ -2,6 +2,62 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 
+function SuggestionsPanel({ teamId }) {
+    const [open, setOpen] = useState(false);
+    const [suggestions, setSuggestions] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [fetched, setFetched] = useState(false);
+
+    const fetch = async () => {
+        if (fetched) { setOpen(o => !o); return; }
+        setOpen(true); setLoading(true);
+        try {
+            const data = await api(`/api/teams/${teamId}/suggestions`);
+            setSuggestions(data); setFetched(true);
+        } catch { /* ignore */ }
+        finally { setLoading(false); }
+    };
+
+    const cls = (score) => score >= 75 ? 'high' : score >= 50 ? 'mid' : 'low';
+
+    return (
+        <div className="suggestions-panel">
+            <div className="suggestions-header" onClick={fetch}>
+                <span>🤖 AI-Suggested Members</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400 }}>
+                    {open ? '▲ Hide' : '▼ Show top matches'}
+                </span>
+            </div>
+            {open && (
+                <div className="suggestions-list">
+                    {loading && <div className="loading-page" style={{ minHeight: 60 }}><span className="spinner" /> Scoring candidates…</div>}
+                    {!loading && suggestions.length === 0 && (
+                        <p style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center' }}>No candidates found.</p>
+                    )}
+                    {!loading && suggestions.map((s, i) => (
+                        <div key={s.user.email} className="suggestion-row">
+                            <div className="suggestion-avatar">
+                                {s.user.name?.charAt(0)?.toUpperCase() || '?'}
+                            </div>
+                            <div className="suggestion-info">
+                                <div className="suggestion-name">{s.user.name}</div>
+                                <div className="suggestion-meta">
+                                    {[s.user.dept, s.user.year ? `Year ${s.user.year}` : null,
+                                    s.user.preferredRoles?.join(', ')].filter(Boolean).join(' · ')}
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                                <span className={`compat-badge ${cls(s.score)}`}>{s.score}%</span>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{s.user.email}</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function RequestRow({ req, onAccept, onDecline }) {
     const [loading, setLoading] = useState(null);
 
@@ -164,6 +220,8 @@ function TeamPanel({ team, onDelete }) {
                     )}
                 </div>
             )}
+
+            <SuggestionsPanel teamId={team._id} />
         </div>
     );
 }

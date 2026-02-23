@@ -68,6 +68,11 @@ const userSchema = new Schema({
 
   isVerified: { type: Boolean, default: false },
 
+  // ── Matching Engine Profile ──
+  skillStrengths: { type: Map, of: Number, default: {} }, // { Python: 4, React: 3 }
+  preferredRoles: { type: [String], default: [] },        // Frontend, Backend, AI, PPT…
+  hackathonInterests: { type: [String], default: [] },
+
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -97,6 +102,10 @@ const teamSchema = new Schema({
   maxMembers: Number,
 
   members: { type: [String], default: [] },
+
+  // ── Matching Engine Requirements ──
+  requiredSkills: { type: Map, of: Number, default: {} }, // { Python: 3, React: 2 }
+  requiredRoles: { type: [String], default: [] },
 
   createdAt: { type: Date, default: Date.now },
 });
@@ -337,6 +346,30 @@ authRouter.post("/login", async (req, res) => {
   }
 });
 
+// Update user profile (called after OTP or from Profile page)
+authRouter.patch("/profile", async (req, res) => {
+  try {
+    const { email, dept, year, gender, skillStrengths, preferredRoles, hackathonInterests } = req.body;
+    if (!email) return res.status(400).json({ message: "Email required" });
+
+    const user = await User.findOneAndUpdate(
+      { email: email.toLowerCase() },
+      { dept, year, gender, skillStrengths, preferredRoles, hackathonInterests },
+      { new: true }
+    );
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({
+      message: "Profile updated",
+      user: { id: user._id, email: user.email, name: user.name, dept: user.dept, year: user.year },
+    });
+  } catch (err) {
+    console.error("Profile update error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // Mount Auth
 app.use("/auth", authRouter);
 app.use("/api/auth", authRouter);
@@ -536,6 +569,174 @@ app.delete("/api/requests/:teamId/:email", async (req, res) => {
     res.json({ message: "Request withdrawn" });
   } catch (err) {
     console.error("Withdraw request error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ---------------- Compatibility Engine ----------------
+
+const WEIGHTS = { skill: 0.35, diversity: 0.20, exp: 0.15, gender: 0.15, role: 0.15 };
+const YEAR_NUM = { 'I': 1, 'II': 2, 'III': 3, 'IV': 4 };
+
+function toObj(map) {
+  if (!map) return {};
+  if (map instanceof Map) return Object.fromEntries(map);
+  if (typeof map === 'object') return map;
+  return {};
+}
+
+function computeCompatibility(team, user, members) {
+  const reqSkills = toObj(team.requiredSkills);
+  const userSkills = toObj(user.skillStrengths);
+  const reqKeys = Object.keys(reqSkills);
+
+  // ─ 1. Skill Coverage Complementarity ─
+  let skillMatch = 0, missingBonus = 0, redundancyPen = 0;
+  if (reqKeys.length > 0) {
+    for (const skill of reqKeys) {
+      const required = reqSkills[skill] || 1;
+      const userLevel = userSkills[skill] || 0;
+      skillMatch += Math.min(userLevel / required, 1.0);
+
+      const membersWithSkill = members.filter(m => (toObj(m.skillStrengths)[skill] || 0) >= required).length;
+      if (membersWithSkill === 0 && userLevel >= required) missingBonus++;
+      if (membersWithSkill >= 2) redundancyPen++;
+    }
+    skillMatch /= reqKeys.length;
+    missingBonus = missingBonus / reqKeys.length;
+    redundancyPen = Math.min(redundancyPen / reqKeys.length, 0.3);
+  } else {
+    skillMatch = 0.7; // no requirements → neutral-positive
+  }
+  const skillComp = Math.max(0, Math.min(1, skillMatch + missingBonus - redundancyPen));
+
+  // ─ 2. Simpson Diversity Index ─
+  const depts = [...members.map(m => m.dept), user.dept].filter(Boolean);
+  let diversity = 0.5;
+  if (depts.length > 0) {
+    const counts = {};
+    depts.forEach(d => { counts[d] = (counts[d] || 0) + 1; });
+    const n = depts.length;
+    diversity = 1 - Object.values(counts).reduce((s, c) => s + (c / n) ** 2, 0);
+  }
+
+  // ─ 3. Std-Dev Experience Balance ─
+  const years = [...members.map(m => YEAR_NUM[m.year]), YEAR_NUM[user.year]].filter(Boolean);
+  let expBalance = 0.5;
+  if (years.length > 1) {
+    const mean = years.reduce((a, b) => a + b, 0) / years.length;
+    const variance = years.reduce((s, y) => s + (y - mean) ** 2, 0) / years.length;
+    expBalance = Math.min(Math.sqrt(variance) / 1.5, 1.0);
+  }
+
+  // ─ 4. Gender Match ─
+  let genderMatch = 1.0;
+  if (team.preferredGender === 'Male' && user.gender !== 'Male') genderMatch = 0.0;
+  if (team.preferredGender === 'Female' && user.gender !== 'Female') genderMatch = 0.0;
+
+  // ─ 5. Role Fit ─
+  const reqRoles = team.requiredRoles || [];
+  const userRoles = user.preferredRoles || [];
+  const roleFit = reqRoles.length === 0 ? 1.0
+    : userRoles.length === 0 ? 0.5
+      : reqRoles.filter(r => userRoles.includes(r)).length / reqRoles.length;
+
+  const raw = WEIGHTS.skill * skillComp + WEIGHTS.diversity * diversity +
+    WEIGHTS.exp * expBalance + WEIGHTS.gender * genderMatch +
+    WEIGHTS.role * roleFit;
+  const score = Math.round(raw * 100);
+
+  return {
+    score,
+    label: score >= 75 ? 'Highly Compatible' : score >= 50 ? 'Moderate Match' : 'Weak Match',
+    breakdown: {
+      skillComp: Math.round(skillComp * 100),
+      diversity: Math.round(diversity * 100),
+      expBalance: Math.round(expBalance * 100),
+      genderMatch: Math.round(genderMatch * 100),
+      roleFit: Math.round(roleFit * 100),
+    },
+  };
+}
+
+// Single team compatibility
+app.get("/api/compatibility/:teamId/:userEmail", async (req, res) => {
+  try {
+    const team = await Team.findById(req.params.teamId).lean();
+    if (!team) return res.status(404).json({ message: "Team not found" });
+
+    const email = decodeURIComponent(req.params.userEmail).toLowerCase();
+    const user = await User.findOne({ email }).lean();
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const memberEmails = [...(team.members || []), team.leader].filter(Boolean);
+    const members = await User.find({ email: { $in: memberEmails } }).lean();
+
+    res.json(computeCompatibility(team, user, members));
+  } catch (err) {
+    console.error("Compatibility error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Batch compatibility (used by JoinTeam page to score all teams in one request)
+app.post("/api/compatibility/batch", async (req, res) => {
+  try {
+    const { teamIds, userEmail } = req.body;
+    if (!teamIds?.length || !userEmail) return res.status(400).json({ message: "teamIds and userEmail required" });
+
+    const email = userEmail.toLowerCase();
+    const user = await User.findOne({ email }).lean();
+    if (!user) return res.json({});
+
+    const teams = await Team.find({ _id: { $in: teamIds } }).lean();
+    const result = {};
+
+    for (const team of teams) {
+      const memberEmails = [...(team.members || []), team.leader].filter(Boolean);
+      const members = await User.find({ email: { $in: memberEmails } }).lean();
+      result[String(team._id)] = computeCompatibility(team, user, members);
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error("Batch compatibility error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Auto-suggestions: top 5 compatible users for a team
+app.get("/api/teams/:teamId/suggestions", async (req, res) => {
+  try {
+    const team = await Team.findById(req.params.teamId).lean();
+    if (!team) return res.status(404).json({ message: "Team not found" });
+
+    const existingReqs = await JoinRequest.find({ teamId: req.params.teamId }, { userEmail: 1 }).lean();
+    const excluded = new Set([
+      team.leader,
+      ...(team.members || []),
+      ...existingReqs.map(r => r.userEmail),
+    ]);
+
+    const memberEmails = [...(team.members || []), team.leader].filter(Boolean);
+    const members = await User.find({ email: { $in: memberEmails } }).lean();
+
+    const candidates = await User.find({
+      isVerified: true,
+      email: { $nin: [...excluded] },
+    }).lean();
+
+    const scored = candidates
+      .map(u => ({
+        user: { name: u.name, email: u.email, dept: u.dept, year: u.year, preferredRoles: u.preferredRoles },
+        ...computeCompatibility(team, u, members),
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+
+    res.json(scored);
+  } catch (err) {
+    console.error("Suggestions error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });

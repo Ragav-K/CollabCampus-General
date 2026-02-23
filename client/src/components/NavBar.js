@@ -23,7 +23,11 @@ export default function NavBar({ user, onLogout }) {
                             <li><Link to="/requested" className={active('/requested')}>Requests</Link></li>
                         </ul>
                         <div className="navbar__user">
-                            <span className="navbar__user-name">{user.name || user.email}</span>
+                            <Link to="/profile" className={`navbar__user-name${active('/profile') ? ' active' : ''}`}
+                                style={{ textDecoration: 'none', color: 'var(--text-muted)' }}
+                                title="My Profile">
+                                {user.name || user.email}
+                            </Link>
                             <button className="btn btn-outline btn-sm" onClick={onLogout}>
                                 Sign out
                             </button>

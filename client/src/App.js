@@ -11,6 +11,7 @@ import CreateTeam from "./pages/CreateTeam";
 import JoinTeam from "./pages/JoinTeam";
 import CreatedTeams from "./pages/CreatedTeams";
 import RequestedTeams from "./pages/RequestedTeams";
+import Profile from "./pages/Profile";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -71,6 +72,10 @@ export default function App() {
         <Route
           path="/requested"
           element={user ? <RequestedTeams user={user} /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/profile"
+          element={user ? <Profile user={user} setUser={setUser} /> : <Navigate to="/login" replace />}
         />
 
         {/* fallback */}

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 
 const GENDER_OPTIONS = ['No Preference', 'Male', 'Female'];
+const ROLE_OPTIONS = ['Frontend', 'Backend', 'AI/ML', 'UI/UX Design', 'Marketing', 'PPT/Presentation'];
+const LEVEL_LABELS = ['', 'Beginner', 'Basic', 'Intermediate', 'Advanced', 'Expert'];
 
 export default function CreateTeam({ user }) {
     const navigate = useNavigate();
@@ -18,6 +20,9 @@ export default function CreateTeam({ user }) {
     });
     const [skills, setSkills] = useState([]);
     const [skillInput, setSkillInput] = useState('');
+    const [requiredRoles, setRequiredRoles] = useState([]);
+    const [reqSkills, setReqSkills] = useState({}); // { skill: level 1-5 }
+    const [reqSkillInput, setReqSkillInput] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -37,6 +42,16 @@ export default function CreateTeam({ user }) {
             addSkill(skillInput);
         }
     };
+
+    const toggleRole = (role) => setRequiredRoles(prev =>
+        prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]);
+
+    const addReqSkill = (val) => {
+        const t = val.trim(); if (!t || reqSkills[t]) return;
+        setReqSkills(s => ({ ...s, [t]: 3 })); setReqSkillInput('');
+    };
+    const removeReqSkill = (s) => { const n = { ...reqSkills }; delete n[s]; setReqSkills(n); };
+    const setReqLevel = (s, l) => setReqSkills(prev => ({ ...prev, [s]: l }));
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -59,8 +74,13 @@ export default function CreateTeam({ user }) {
                     ...form,
                     maxMembers: Number(form.maxMembers),
                     skillsNeeded: skills,
+                    requiredRoles,
+                    requiredSkills: reqSkills,
                     leader: user.email,
                     leaderName: user.name,
+                    leaderDept: user.dept || '',
+                    leaderYear: user.year || '',
+                    leaderGender: user.gender || '',
                 },
             });
             navigate('/created');
@@ -161,6 +181,57 @@ export default function CreateTeam({ user }) {
                                 />
                             </div>
                             <span className="hint">Separate skills with Enter or comma.</span>
+                        </div>
+                    </div>
+
+                    <hr className="form-divider" />
+
+                    {/* Matching Engine */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <p style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: -4 }}>
+                            Matching Requirements
+                        </p>
+
+                        <div className="form-group">
+                            <label className="label">Roles Needed</label>
+                            <span className="hint">Click to select roles you need in your team</span>
+                            <div className="role-chips" style={{ marginTop: 8 }}>
+                                {ROLE_OPTIONS.map(r => (
+                                    <button key={r} type="button"
+                                        className={`role-chip${requiredRoles.includes(r) ? ' active' : ''}`}
+                                        onClick={() => toggleRole(r)}>{r}</button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label className="label">Minimum Skill Requirements</label>
+                            <span className="hint">Add skills and set minimum proficiency level — used by the matching engine</span>
+                            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                                <input className="input" placeholder="e.g. Python" value={reqSkillInput}
+                                    onChange={e => setReqSkillInput(e.target.value)}
+                                    onKeyDown={e => { if (['Enter', ','].includes(e.key)) { e.preventDefault(); addReqSkill(reqSkillInput); } }}
+                                    style={{ flex: 1 }} />
+                                <button type="button" className="btn btn-outline" onClick={() => addReqSkill(reqSkillInput)}>Add</button>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                                {Object.entries(reqSkills).map(([skill, level]) => (
+                                    <div key={skill} className="skill-level-row">
+                                        <span className="skill-name">{skill}</span>
+                                        <div className="skill-dots">
+                                            {[1, 2, 3, 4, 5].map(n => (
+                                                <button key={n} type="button"
+                                                    className={`skill-dot${level >= n ? ' filled' : ''}`}
+                                                    onClick={() => setReqLevel(skill, n)}
+                                                    title={LEVEL_LABELS[n]} />
+                                            ))}
+                                        </div>
+                                        <span className="skill-level-label">{LEVEL_LABELS[level]}+</span>
+                                        <button type="button" onClick={() => removeReqSkill(skill)}
+                                            style={{ marginLeft: 10, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '1rem' }}>×</button>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
 
