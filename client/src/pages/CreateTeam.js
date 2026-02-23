@@ -1,112 +1,191 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import { api } from '../api';
 
-function CreateTeam({ user }) {
-  const [leaderName, setLeaderName] = useState('');
-  const [leaderDept, setLeaderDept] = useState('');
-  const [leaderYear, setLeaderYear] = useState('');
-  const [leaderGender, setLeaderGender] = useState('');
+const GENDER_OPTIONS = ['No Preference', 'Male', 'Female'];
 
-  const [hackathonName, setHackathonName] = useState('');
-  const [hackathonPlace, setHackathonPlace] = useState('');
-  const [hackathonDate, setHackathonDate] = useState('');
-  const [lastDate, setLastDate] = useState('');
-  const [preferredGender, setPreferredGender] = useState('No Preference');
+export default function CreateTeam({ user }) {
+    const navigate = useNavigate();
 
-  const [problemStatement, setProblemStatement] = useState('');
-  const [skillsNeeded, setSkillsNeeded] = useState('');
-  const [maxMembers, setMaxMembers] = useState('');
+    const [form, setForm] = useState({
+        hackathonName: '',
+        hackathonPlace: '',
+        hackathonDate: '',
+        lastDate: '',
+        problemStatement: '',
+        maxMembers: '',
+        preferredGender: 'No Preference',
+    });
+    const [skills, setSkills] = useState([]);
+    const [skillInput, setSkillInput] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+    const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
-    const newTeam = {
-      leader: user.email,
-      leaderName,
-      leaderDept,
-      leaderYear,
-      leaderGender,
-      hackathonName,
-      hackathonPlace,
-      hackathonDate,
-      lastDate,
-      preferredGender,
-      problemStatement,
-      skillsNeeded: skillsNeeded
-        .split(',')
-        .map(skill => skill.trim())
-        .filter(Boolean),
-      maxMembers: parseInt(maxMembers)
+    const addSkill = (val) => {
+        const v = val.trim();
+        if (v && !skills.includes(v)) setSkills((s) => [...s, v]);
+        setSkillInput('');
     };
 
-    try {
-      await axios.post(`${process.env.REACT_APP_API_URL}/api/teams`, newTeam);
+    const removeSkill = (s) => setSkills((prev) => prev.filter((x) => x !== s));
 
-      alert('✅ Team created successfully!');
-      // Reset form
-      setLeaderName('');
-      setLeaderDept('');
-      setLeaderYear('');
-      setLeaderGender('');
-      setHackathonName('');
-      setHackathonPlace('');
-      setHackathonDate('');
-      setLastDate('');
-      setPreferredGender('No Preference');
-      setProblemStatement('');
-      setSkillsNeeded('');
-      setMaxMembers('');
-    } catch (err) {
-      console.error(err);
-      alert(err.response?.data?.message || '❌ Failed to create team.');
-    }
-  };
+    const handleSkillKey = (e) => {
+        if (['Enter', ',', 'Tab'].includes(e.key)) {
+            e.preventDefault();
+            addSkill(skillInput);
+        }
+    };
 
-  return (
-    <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-      <h2>Create a Team</h2>
-      <form onSubmit={handleSubmit}>
-        <h4>👤 Your Info</h4>
-        <input type="text" placeholder="Your Name" value={leaderName} onChange={e => setLeaderName(e.target.value)} required />
-        <input type="text" placeholder="Your Department" value={leaderDept} onChange={e => setLeaderDept(e.target.value)} required />
-        <select value={leaderYear} onChange={e => setLeaderYear(e.target.value)} required>
-          <option value="">Select Year</option>
-          <option value="I">I</option>
-          <option value="II">II</option>
-          <option value="III">III</option>
-          <option value="IV">IV</option>
-        </select>
-        <select value={leaderGender} onChange={e => setLeaderGender(e.target.value)} required>
-          <option value="">Select Gender</option>
-          <option value="Male">Male</option>
-          <option value="Female">Female</option>
-          <option value="Other">Other</option>
-        </select>
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
 
-        <h4>🏆 Hackathon Info</h4>
-        <input type="text" placeholder="Hackathon Name" value={hackathonName} onChange={e => setHackathonName(e.target.value)} required />
-        <input type="text" placeholder="Hackathon Place" value={hackathonPlace} onChange={e => setHackathonPlace(e.target.value)} required />
-        <label>Hackathon Date:</label>
-        <input type="date" value={hackathonDate} onChange={e => setHackathonDate(e.target.value)} required />
-        <label>Last Date to Join:</label>
-        <input type="date" value={lastDate} onChange={e => setLastDate(e.target.value)} required />
+        if (!form.hackathonName || !form.hackathonDate || !form.lastDate || !form.maxMembers) {
+            setError('Please fill in all required fields.');
+            return;
+        }
 
-        <label>Preferred Gender:</label>
-        <select value={preferredGender} onChange={e => setPreferredGender(e.target.value)}>
-          <option value="No Preference">No Preference</option>
-          <option value="Male">Male</option>
-          <option value="Female">Female</option>
-        </select>
+        if (Number(form.maxMembers) < 2) {
+            setError('Team must have at least 2 members.');
+            return;
+        }
 
-        <h4>📋 Team Details</h4>
-        <textarea placeholder="Problem Statement" value={problemStatement} onChange={e => setProblemStatement(e.target.value)} required rows={3} />
-        <input type="text" placeholder="Skills Needed (comma separated)" value={skillsNeeded} onChange={e => setSkillsNeeded(e.target.value)} required />
-        <input type="number" placeholder="Max Members" value={maxMembers} onChange={e => setMaxMembers(e.target.value)} required min={1} />
+        setLoading(true);
+        try {
+            await api('/api/teams', {
+                body: {
+                    ...form,
+                    maxMembers: Number(form.maxMembers),
+                    skillsNeeded: skills,
+                    leader: user.email,
+                    leaderName: user.name,
+                },
+            });
+            navigate('/created');
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-        <button type="submit" style={{ marginTop: '20px' }}>Create Team</button>
-      </form>
-    </div>
-  );
+    return (
+        <div className="page">
+            <div className="container" style={{ maxWidth: 660 }}>
+                <div className="section-head" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4, marginBottom: 32 }}>
+                    <h2>Create a team</h2>
+                    <p>Post your hackathon listing and let teammates find you.</p>
+                </div>
+
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                    {error && <div className="alert alert-error">{error}</div>}
+
+                    {/* Event details */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <p style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: -4 }}>
+                            Event details
+                        </p>
+
+                        <div className="form-group">
+                            <label className="label" htmlFor="hackathonName">Hackathon name *</label>
+                            <input id="hackathonName" className="input" placeholder="Smart India Hackathon 2025" value={form.hackathonName} onChange={set('hackathonName')} required />
+                        </div>
+
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label className="label" htmlFor="hackathonDate">Hackathon date *</label>
+                                <input id="hackathonDate" type="date" className="input" value={form.hackathonDate} onChange={set('hackathonDate')} required />
+                            </div>
+                            <div className="form-group">
+                                <label className="label" htmlFor="lastDate">Application deadline *</label>
+                                <input id="lastDate" type="date" className="input" value={form.lastDate} onChange={set('lastDate')} required />
+                            </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label className="label" htmlFor="hackathonPlace">Venue / Mode</label>
+                            <input id="hackathonPlace" className="input" placeholder="Chennai / Online" value={form.hackathonPlace} onChange={set('hackathonPlace')} />
+                        </div>
+                    </div>
+
+                    <hr className="form-divider" />
+
+                    {/* Team preferences */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <p style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: -4 }}>
+                            Team preferences
+                        </p>
+
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label className="label" htmlFor="maxMembers">Max team size *</label>
+                                <input
+                                    id="maxMembers"
+                                    type="number"
+                                    min={2}
+                                    max={10}
+                                    className="input"
+                                    placeholder="4"
+                                    value={form.maxMembers}
+                                    onChange={set('maxMembers')}
+                                    required
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="label" htmlFor="preferredGender">Preferred gender</label>
+                                <select id="preferredGender" className="select" value={form.preferredGender} onChange={set('preferredGender')}>
+                                    {GENDER_OPTIONS.map((g) => <option key={g}>{g}</option>)}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label className="label">Skills needed</label>
+                            <div className="skills-wrap" onClick={() => document.getElementById('skill-inp')?.focus()}>
+                                {skills.map((s) => (
+                                    <span className="skill-chip" key={s}>
+                                        {s}
+                                        <button type="button" onClick={() => removeSkill(s)} aria-label={`Remove ${s}`}>×</button>
+                                    </span>
+                                ))}
+                                <input
+                                    id="skill-inp"
+                                    className="skills-input"
+                                    placeholder={skills.length ? '' : 'Python, React, ML… press Enter'}
+                                    value={skillInput}
+                                    onChange={(e) => setSkillInput(e.target.value)}
+                                    onKeyDown={handleSkillKey}
+                                    onBlur={() => addSkill(skillInput)}
+                                />
+                            </div>
+                            <span className="hint">Separate skills with Enter or comma.</span>
+                        </div>
+                    </div>
+
+                    <hr className="form-divider" />
+
+                    {/* Problem statement */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <p style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: -4 }}>
+                            Problem statement
+                        </p>
+
+                        <div className="form-group">
+                            <label className="label" htmlFor="problemStatement">Describe the problem you're solving</label>
+                            <textarea id="problemStatement" className="textarea" placeholder="We're building an AI-powered tool that…" value={form.problemStatement} onChange={set('problemStatement')} />
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 10 }}>
+                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                            {loading ? <span className="spinner" /> : 'Post team listing'}
+                        </button>
+                        <button type="button" className="btn btn-ghost" onClick={() => navigate('/')}>Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
 }
-
-export default CreateTeam;

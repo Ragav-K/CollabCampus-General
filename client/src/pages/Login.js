@@ -1,72 +1,81 @@
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import axios from "axios";
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { api } from '../api';
 
-export default function Login({ setUser }) {            // <-- accept setUser prop
-  const navigate = useNavigate();
-  const [form, setForm] = useState({ email: "", password: "" });
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
+export default function Login({ setUser }) {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+        try {
+            const data = await api('/auth/login', { body: { email, password } });
+            localStorage.setItem('user', JSON.stringify(data.user));
+            setUser(data.user);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setErr("");
-    if (!form.email || !form.password) { setErr("Email & password required"); return; }
+    return (
+        <div className="auth-page">
+            <div className="auth-box">
+                <h2>Welcome back</h2>
+                <p className="auth-sub">Sign in to your CollabCampus account.</p>
 
-    setLoading(true);
-    try {
-      const url = `${process.env.REACT_APP_API_URL}/api/auth/login`;
-      const res = await axios.post(url, {
-        email: form.email.trim(),
-        password: form.password
-      });
+                <form className="auth-form" onSubmit={handleSubmit}>
+                    {error && <div className="alert alert-error">{error}</div>}
 
-      const user = res.data.user || { email: form.email.trim() };
-      // persist for refresh
-      localStorage.setItem("user", JSON.stringify(user));
+                    <div className="form-group">
+                        <label className="label" htmlFor="email">Email</label>
+                        <input
+                            id="email"
+                            type="email"
+                            className="input"
+                            placeholder="you@example.com"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            autoFocus
+                            autoComplete="email"
+                        />
+                    </div>
 
-      // IMPORTANT: update top-level React state so routes and nav show logged-in immediately
-      if (typeof setUser === "function") setUser(user);
+                    <div className="form-group">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <label className="label" htmlFor="password">Password</label>
+                            <Link to="/reset" style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                                Forgot?
+                            </Link>
+                        </div>
+                        <input
+                            id="password"
+                            type="password"
+                            className="input"
+                            placeholder="••••••••"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            autoComplete="current-password"
+                        />
+                    </div>
 
-      // Navigate to home
-      navigate("/");
-    } catch (error) {
-      console.error("Login error:", error);
-      setErr(error.response?.data?.message || "Login failed");
-    } finally {
-      setLoading(false);
-    }
-  };
+                    <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+                        {loading ? <span className="spinner" /> : 'Sign in'}
+                    </button>
+                </form>
 
-  return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h2>Login</h2>
-        {err && <div style={styles.err}>{err}</div>}
-
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <input name="email" type="email" placeholder="College email" value={form.email} onChange={handleChange} style={styles.input} required />
-          <input name="password" type="password" placeholder="Password" value={form.password} onChange={handleChange} style={styles.input} required />
-          <button type="submit" style={styles.btn} disabled={loading}>
-            {loading ? "Signing in..." : "Login"}
-          </button>
-        </form>
-
-        <div style={{ marginTop: 12 }}>
-          <Link to="/signup">Sign up</Link> · <Link to="/reset">Forgot password?</Link>
+                <p className="auth-footer">
+                    No account?{' '}
+                    <Link to="/signup">Create one</Link>
+                </p>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 }
-
-const styles = {
-  container: { display: "flex", justifyContent: "center", paddingTop: 60 },
-  card: { width: 420, padding: 20, borderRadius: 8, boxShadow: "0 6px 18px rgba(0,0,0,0.08)" },
-  form: { display: "flex", flexDirection: "column", gap: 10 },
-  input: { padding: 10, borderRadius: 6, border: "1px solid #ddd" },
-  btn: { padding: 10, background: "#2563eb", color: "white", border: "none", borderRadius: 6, cursor: "pointer" },
-  err: { padding: 10, background: "#ffe6e6", color: "#a00", borderRadius: 6, marginBottom: 8 }
-};

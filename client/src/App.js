@@ -40,44 +40,42 @@ export default function App() {
     <Router>
       <NavBar user={user} onLogout={handleLogout} />
 
-      <div style={{ paddingTop: 16 }}>
-        <Routes>
-          {/* Public / Home */}
-          <Route path="/" element={<Home user={user} />} />
+      <Routes>
+        {/* Public / Home */}
+        <Route path="/" element={<Home user={user} />} />
 
-          {/* Auth routes: pass setUser so Login/Signup update global state */}
-          <Route
-            path="/login"
-            element={user ? <Navigate to="/" replace /> : <Login setUser={setUser} />}
-          />
-          <Route
-            path="/signup"
-            element={user ? <Navigate to="/" replace /> : <Signup setUser={setUser} />}
-          />
-          <Route path="/reset" element={<ResetPassword />} />
+        {/* Auth routes: pass setUser so Login/Signup update global state */}
+        <Route
+          path="/login"
+          element={user ? <Navigate to="/" replace /> : <Login setUser={setUser} />}
+        />
+        <Route
+          path="/signup"
+          element={user ? <Navigate to="/" replace /> : <Signup setUser={setUser} />}
+        />
+        <Route path="/reset" element={<ResetPassword />} />
 
-          {/* Protected routes */}
-          <Route
-            path="/create"
-            element={user ? <CreateTeam user={user} /> : <Navigate to="/login" replace />}
-          />
-          <Route
-            path="/join"
-            element={user ? <JoinTeam user={user} /> : <Navigate to="/login" replace />}
-          />
-          <Route
-            path="/created"
-            element={user ? <CreatedTeams user={user} /> : <Navigate to="/login" replace />}
-          />
-          <Route
-            path="/requested"
-            element={user ? <RequestedTeams user={user} /> : <Navigate to="/login" replace />}
-          />
+        {/* Protected routes */}
+        <Route
+          path="/create"
+          element={user ? <CreateTeam user={user} /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/join"
+          element={user ? <JoinTeam user={user} /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/created"
+          element={user ? <CreatedTeams user={user} /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/requested"
+          element={user ? <RequestedTeams user={user} /> : <Navigate to="/login" replace />}
+        />
 
-          {/* fallback */}
-          <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
-        </Routes>
-      </div>
+        {/* fallback */}
+        <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
+      </Routes>
     </Router>
   );
 }

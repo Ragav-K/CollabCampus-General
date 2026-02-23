@@ -1,308 +1,248 @@
-// src/pages/JoinTeam.js
-import React, { useEffect, useState, useCallback } from "react";
-import axios from "axios";
+import React, { useState, useEffect, useCallback } from 'react';
+import { api } from '../api';
 
-// API URL from env
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+function genderBadge(g) {
+    if (g === 'Male') return <span className="badge badge-gm">♂ Male only</span>;
+    if (g === 'Female') return <span className="badge badge-gf">♀ Female only</span>;
+    return null;
+}
 
-export default function JoinTeam({ user }) {
-  const [teams, setTeams] = useState([]);
-  const [filteredTeams, setFilteredTeams] = useState([]);
-  const [showForm, setShowForm] = useState({});
-  const [formData, setFormData] = useState({
-    userName: "",
-    userDept: "",
-    userYear: "",
-    userGender: "",
-    userStrengths: "",
-    userWhatsapp: "",
-  });
+// ── Join request modal ────────────────────────────────────────
+function JoinModal({ team, userEmail, userName, onClose, onSubmit }) {
+    const [form, setForm] = useState({ userWhatsapp: '', userStrengths: '', userProblemStatement: '' });
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+    const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  // Filters
-  const [selectedSkill, setSelectedSkill] = useState("");
-  const [selectedGenderPref, setSelectedGenderPref] = useState("");
-  const [selectedHackathon, setSelectedHackathon] = useState("");
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+        try {
+            await api('/api/requests', {
+                body: {
+                    teamId: team._id,
+                    userEmail,
+                    userName,
+                    userDept: '',
+                    userYear: '',
+                    userGender: '',
+                    ...form,
+                },
+            });
+            onSubmit(team._id);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  const fetchTeams = useCallback(async () => {
-    try {
-      const res = await axios.get(`${API_URL}/api/teams`, {
-        params: {
-          email: user.email,
-          excludeRequested: user.email,
-        },
-      });
+    return (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+            <div className="modal">
+                <div className="modal-header">
+                    <div>
+                        <div className="card-title">Apply to join</div>
+                        <div className="card-sub">{team.hackathonName}</div>
+                    </div>
+                    <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
+                </div>
 
-      let all = Array.isArray(res.data)
-        ? res.data.filter((team) => team.leader !== user.email)
-        : [];
+                <form className="modal-form" onSubmit={handleSubmit}>
+                    {error && <div className="alert alert-error">{error}</div>}
 
-      // Sort teams by newest first using _id timestamp
-      all.sort(
-        (a, b) =>
-          new Date(parseInt(b._id.toString().substring(0, 8), 16) * 1000) -
-          new Date(parseInt(a._id.toString().substring(0, 8), 16) * 1000)
-      );
+                    <div className="form-group">
+                        <label className="label" htmlFor="whatsapp">WhatsApp number</label>
+                        <input id="whatsapp" className="input" placeholder="+91 98765 43210" value={form.userWhatsapp} onChange={set('userWhatsapp')} />
+                    </div>
 
-      // Set the teams (Can add alreadyRequested logic if backend supports it)
-      setTeams(all);
-      setFilteredTeams(all);
-    } catch (err) {
-      console.error("Error fetching teams:", err);
-      alert("Error loading teams.");
-    }
-  }, [user.email]);
+                    <div className="form-group">
+                        <label className="label" htmlFor="strengths">Your skills / strengths *</label>
+                        <textarea id="strengths" className="textarea" placeholder="I'm good at backend development, ML models, and deployment…" value={form.userStrengths} onChange={set('userStrengths')} required style={{ minHeight: 70 }} />
+                    </div>
 
-  useEffect(() => {
-    fetchTeams();
-  }, [fetchTeams]);
+                    <div className="form-group">
+                        <label className="label" htmlFor="ps">Your problem statement idea</label>
+                        <textarea id="ps" className="textarea" placeholder="I think we should solve X by building Y…" value={form.userProblemStatement} onChange={set('userProblemStatement')} style={{ minHeight: 70 }} />
+                    </div>
 
-  const toggleForm = (teamId) => {
-    setShowForm((prev) => ({ ...prev, [teamId]: !prev[teamId] }));
-  };
-
-  const handleChange = (e) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
-
-  const handleRequest = async (e, teamId) => {
-    e.preventDefault();
-    try {
-      await axios.post(`${API_URL}/api/teams/${teamId}/request`, {
-        ...formData,
-        userEmail: user.email,
-      });
-      alert("✅ Request Sent!");
-      setFormData({
-        userName: "",
-        userDept: "",
-        userYear: "",
-        userGender: "",
-        userStrengths: "",
-        userWhatsapp: "",
-      });
-      setShowForm((prev) => ({ ...prev, [teamId]: false }));
-      fetchTeams();
-    } catch (err) {
-      console.error("Error sending request:", err);
-      alert("❌ Error sending request.");
-    }
-  };
-
-  // Filter logic
-  useEffect(() => {
-    let filtered = [...teams];
-    if (selectedSkill)
-      filtered = filtered.filter((team) =>
-        team.skillsNeeded?.includes(selectedSkill)
-      );
-    if (selectedGenderPref)
-      filtered = filtered.filter(
-        (team) =>
-          team.preferredGender === selectedGenderPref ||
-          team.preferredGender === "No Preference"
-      );
-    if (selectedHackathon)
-      filtered = filtered.filter(
-        (team) => team.hackathonName === selectedHackathon
-      );
-    setFilteredTeams(filtered);
-  }, [selectedSkill, selectedGenderPref, selectedHackathon, teams]);
-
-  const uniqueSkills = [...new Set(teams.flatMap((t) => t.skillsNeeded || []))];
-  const uniqueHackathons = [...new Set(teams.map((t) => t.hackathonName))];
-
-  return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: 20 }}>
-      <h2>🚀 Join a Team</h2>
-
-      {/* Filters */}
-      <div
-        style={{
-          marginBottom: 20,
-          border: "1px solid #ccc",
-          padding: 10,
-          borderRadius: 8,
-        }}
-      >
-        <h4>🔍 Filter Teams</h4>
-        <select
-          onChange={(e) => setSelectedSkill(e.target.value)}
-          value={selectedSkill}
-        >
-          <option value="">All Skills</option>
-          {uniqueSkills.map((skill) => (
-            <option key={skill} value={skill}>
-              {skill}
-            </option>
-          ))}
-        </select>{" "}
-        <select
-          onChange={(e) => setSelectedGenderPref(e.target.value)}
-          value={selectedGenderPref}
-        >
-          <option value="">All Genders</option>
-          <option value="Male">Male Preference</option>
-          <option value="Female">Female Preference</option>
-          <option value="No Preference">No Preference</option>
-        </select>{" "}
-        <select
-          onChange={(e) => setSelectedHackathon(e.target.value)}
-          value={selectedHackathon}
-        >
-          <option value="">All Hackathons</option>
-          {uniqueHackathons.map((h) => (
-            <option key={h} value={h}>
-              {h}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Team Cards */}
-      {filteredTeams.length === 0 ? (
-        <p>No teams match your filters.</p>
-      ) : (
-        filteredTeams.map((team) => (
-          <div
-            key={team._id}
-            style={{
-              border: "1px solid #ccc",
-              padding: 16,
-              borderRadius: 8,
-              marginBottom: 20,
-            }}
-          >
-            <h3>{team.problemStatement}</h3>
-            <p>
-              <strong>Hackathon:</strong> {team.hackathonName} |{" "}
-              <strong>Place:</strong> {team.hackathonPlace}
-            </p>
-            <p>
-              <strong>Date:</strong> {team.hackathonDate} |{" "}
-              <strong>Last Date to Join:</strong> {team.lastDate}
-            </p>
-            <p>
-              <strong>Preferred Gender:</strong> {team.preferredGender}
-            </p>
-            <p>
-              <strong>Required Skills:</strong>{" "}
-              {team.skillsNeeded?.join(", ") || "Not specified"}
-            </p>
-            <p>
-              <strong>Leader:</strong> {team.leaderName} ({team.leader}) | Dept:{" "}
-              {team.leaderDept} | Year: {team.leaderYear}
-            </p>
-            <p>
-              <strong>Members:</strong> {team.members.length}/{team.maxMembers}
-            </p>
-
-            {/* Mark if already requested if you implement frontend logic */}
-            {/* {team.alreadyRequested ? (
-              <p style={{ marginTop: "10px", color: "green" }}>
-                ✅ Request Already Sent
-              </p>
-            ) : ( */}
-            <>
-              <button
-                onClick={() => toggleForm(team._id)}
-                style={{
-                  background: "#2563eb",
-                  color: "white",
-                  padding: "6px 10px",
-                  border: "none",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                }}
-              >
-                {showForm[team._id]
-                  ? "🔼 Hide Join Form"
-                  : "🔽 Show Join Form"}
-              </button>
-
-              {showForm[team._id] && (
-                <form
-                  onSubmit={(e) => handleRequest(e, team._id)}
-                  style={{
-                    marginTop: "10px",
-                    borderTop: "1px solid #ddd",
-                    paddingTop: "10px",
-                  }}
-                >
-                  <input
-                    type="text"
-                    name="userName"
-                    placeholder="Your Name"
-                    value={formData.userName}
-                    onChange={handleChange}
-                    required
-                  />
-                  <input
-                    type="text"
-                    name="userDept"
-                    placeholder="Department"
-                    value={formData.userDept}
-                    onChange={handleChange}
-                    required
-                  />
-                  <select
-                    name="userYear"
-                    value={formData.userYear}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">Select Year</option>
-                    <option value="I">I</option>
-                    <option value="II">II</option>
-                    <option value="III">III</option>
-                    <option value="IV">IV</option>
-                  </select>
-                  <select
-                    name="userGender"
-                    value={formData.userGender}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">Select Gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                  <input
-                    type="text"
-                    name="userWhatsapp"
-                    placeholder="WhatsApp Number"
-                    value={formData.userWhatsapp}
-                    onChange={handleChange}
-                    required
-                  />
-                  <textarea
-                    name="userStrengths"
-                    placeholder="Your Strengths or Skills"
-                    value={formData.userStrengths}
-                    onChange={handleChange}
-                    required
-                  />
-                  <button
-                    type="submit"
-                    style={{
-                      marginTop: "10px",
-                      background: "#10b981",
-                      color: "#fff",
-                      padding: "8px 12px",
-                      border: "none",
-                      borderRadius: 6,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Request to Join
-                  </button>
+                    <div className="modal-actions">
+                        <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={loading}>
+                            {loading ? <span className="spinner" /> : 'Send request'}
+                        </button>
+                        <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                    </div>
                 </form>
-              )}
-            </>
-            {/* )} */}
-          </div>
-        ))
-      )}
-    </div>
-  );
+            </div>
+        </div>
+    );
+}
+
+// ── Team card ────────────────────────────────────────────────
+function TeamCard({ team, onApply }) {
+    const spotsLeft = team.maxMembers - (team.members?.length || 0);
+
+    return (
+        <div className="card">
+            <div className="card-header">
+                <div>
+                    <div className="card-title">{team.hackathonName}</div>
+                    <div className="card-sub">
+                        Posted by {team.leaderName || team.leader}
+                        {team.hackathonPlace && ` · ${team.hackathonPlace}`}
+                    </div>
+                </div>
+                <span style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    color: spotsLeft <= 1 ? 'var(--warning)' : 'var(--success)',
+                    background: spotsLeft <= 1 ? '#fffbeb' : 'var(--success-light)',
+                    border: `1px solid ${spotsLeft <= 1 ? '#fde68a' : '#a7f3d0'}`,
+                    borderRadius: 100,
+                    padding: '2px 10px',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                }}>
+                    {spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left
+                </span>
+            </div>
+
+            <div className="card-body">
+                <div className="meta-row">
+                    {team.hackathonDate && (
+                        <span className="meta-item">📅 {new Date(team.hackathonDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    )}
+                    {team.lastDate && (
+                        <span className="meta-item">⏳ Apply by {new Date(team.lastDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
+                    )}
+                </div>
+
+                {team.problemStatement && (
+                    <p style={{ fontSize: '0.85rem', WebkitLineClamp: 3, display: '-webkit-box', WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {team.problemStatement}
+                    </p>
+                )}
+
+                {team.skillsNeeded?.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                        {team.skillsNeeded.map((s) => <span key={s} className="badge badge-skill">{s}</span>)}
+                    </div>
+                )}
+            </div>
+
+            <div className="card-footer" style={{ justifyContent: 'space-between' }}>
+                {genderBadge(team.preferredGender)}
+                <button className="btn btn-primary btn-sm" onClick={() => onApply(team)} style={{ marginLeft: 'auto' }}>
+                    Apply →
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ── Main JoinTeam page ───────────────────────────────────────
+export default function JoinTeam({ user }) {
+    const [teams, setTeams] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [modal, setModal] = useState(null);
+    const [applied, setApplied] = useState(new Set());
+    const [search, setSearch] = useState('');
+
+    const fetchTeams = useCallback(async () => {
+        setLoading(true);
+        setError('');
+        try {
+            const data = await api(`/api/teams?email=${encodeURIComponent(user.email)}&excludeRequested=${encodeURIComponent(user.email)}`);
+            setTeams(data);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [user.email]);
+
+    useEffect(() => { fetchTeams(); }, [fetchTeams]);
+
+    const handleApplied = (teamId) => {
+        setApplied((s) => new Set(s).add(teamId));
+        setModal(null);
+    };
+
+    const filtered = search.trim()
+        ? teams.filter((t) =>
+            [t.hackathonName, t.leaderName, t.hackathonPlace, ...(t.skillsNeeded || [])]
+                .join(' ').toLowerCase().includes(search.toLowerCase())
+        )
+        : teams;
+
+    return (
+        <div className="page">
+            <div className="container">
+                <div className="section-head">
+                    <div>
+                        <h2>Browse teams</h2>
+                        <p>Open hackathon teams looking for members like you.</p>
+                    </div>
+                    <button className="btn btn-ghost btn-sm" onClick={fetchTeams}>↺ Refresh</button>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 24, maxWidth: 340 }}>
+                    <input
+                        className="input"
+                        placeholder="Search hackathons, skills…"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
+
+                {loading && (
+                    <div className="loading-page">
+                        <span className="spinner" /> Loading teams…
+                    </div>
+                )}
+
+                {error && <div className="alert alert-error" style={{ marginBottom: 20 }}>{error}</div>}
+
+                {!loading && !error && filtered.length === 0 && (
+                    <div className="empty-state">
+                        <div className="empty-state-icon">🔍</div>
+                        <h3>{search ? 'No matches found' : 'No open teams right now'}</h3>
+                        <p>{search ? 'Try a different search term.' : 'Check back soon, or create your own team listing.'}</p>
+                    </div>
+                )}
+
+                {!loading && filtered.length > 0 && (
+                    <div className="teams-grid">
+                        {filtered.map((t) => (
+                            applied.has(t._id)
+                                ? (
+                                    <div className="card" key={t._id} style={{ opacity: 0.65 }}>
+                                        <div className="card-header">
+                                            <div>
+                                                <div className="card-title">{t.hackathonName}</div>
+                                                <div className="card-sub">Request sent</div>
+                                            </div>
+                                            <span className="badge badge-pending">Pending</span>
+                                        </div>
+                                    </div>
+                                )
+                                : <TeamCard key={t._id} team={t} onApply={setModal} />
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {modal && (
+                <JoinModal
+                    team={modal}
+                    userEmail={user.email}
+                    userName={user.name}
+                    onClose={() => setModal(null)}
+                    onSubmit={handleApplied}
+                />
+            )}
+        </div>
+    );
 }
