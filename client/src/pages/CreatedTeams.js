@@ -227,6 +227,16 @@ function SuggestionsPanel({ teamId }) {
 // ── Request Row ───────────────────────────────────────────────
 function RequestRow({ req, onAccept, onDecline }) {
     const [loading, setLoading] = useState(null);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const userObj = {
+        name: req.userName || req.userEmail,
+        email: req.userEmail,
+        dept: req.userDept,
+        year: req.userYear,
+        gender: req.userGender,
+        preferredRoles: [],
+        skillStrengths: {},
+    };
     const act = async action => {
         setLoading(action);
         try {
@@ -238,26 +248,33 @@ function RequestRow({ req, onAccept, onDecline }) {
     const statusBadge = { pending: <span className="badge badge-pending">Pending</span>, accepted: <span className="badge badge-accepted">Accepted</span>, declined: <span className="badge badge-declined">Declined</span> }[req.status] || null;
 
     return (
-        <div className="request-item">
-            <div className="request-info">
-                <strong>{req.userName || req.userEmail}</strong>
-                <span>{req.userEmail}</span>
-                {req.userDept && <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{req.userDept}{req.userYear ? ` · Year ${req.userYear}` : ''}{req.userGender ? ` · ${req.userGender}` : ''}</span>}
+        <>
+            <div className="request-item">
+                <div className="request-info" style={{ cursor: 'pointer' }}
+                    onClick={() => setSelectedUser(userObj)}
+                    title="Click to view profile">
+                    <strong style={{ color: 'var(--accent)', textDecoration: 'underline dotted' }}>
+                        {req.userName || req.userEmail}
+                    </strong>
+                    <span>{req.userEmail}</span>
+                    {req.userDept && <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{req.userDept}{req.userYear ? ` · Year ${req.userYear}` : ''}{req.userGender ? ` · ${req.userGender}` : ''}</span>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+                    {statusBadge}
+                    {req.status === 'pending' && (
+                        <div className="request-actions">
+                            <button className="btn btn-success btn-sm" onClick={() => act('accept')} disabled={!!loading}>
+                                {loading === 'accept' ? <span className="spinner" /> : '✓ Accept'}
+                            </button>
+                            <button className="btn btn-danger btn-sm" onClick={() => act('decline')} disabled={!!loading}>
+                                {loading === 'decline' ? <span className="spinner" /> : '✕ Decline'}
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
-                {statusBadge}
-                {req.status === 'pending' && (
-                    <div className="request-actions">
-                        <button className="btn btn-success btn-sm" onClick={() => act('accept')} disabled={!!loading}>
-                            {loading === 'accept' ? <span className="spinner" /> : '✓ Accept'}
-                        </button>
-                        <button className="btn btn-danger btn-sm" onClick={() => act('decline')} disabled={!!loading}>
-                            {loading === 'decline' ? <span className="spinner" /> : '✕ Decline'}
-                        </button>
-                    </div>
-                )}
-            </div>
-        </div>
+            {selectedUser && <UserDetailPopover u={selectedUser} onClose={() => setSelectedUser(null)} />}
+        </>
     );
 }
 
