@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 
@@ -77,7 +77,21 @@ export default function Profile({ user, setUser }) {
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState('');
 
+    // Sync form whenever the user prop changes (e.g. after save updating parent state)
+    useEffect(() => {
+        if (!user) return;
+        setForm({
+            dept: user.dept || '',
+            year: user.year || '',
+            gender: user.gender || '',
+            preferredRoles: user.preferredRoles || [],
+            skillStrengths: user.skillStrengths || {},
+            hackathonInterests: user.hackathonInterests || [],
+        });
+    }, [user]);
+
     const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+
 
     const handleSubmit = async (e) => {
         e.preventDefault();

@@ -29,15 +29,16 @@ export default function CreateTeam({ user }) {
     const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
     const addSkill = (val) => {
-        const v = val.trim();
-        if (v && !skills.includes(v)) setSkills((s) => [...s, v]);
+        // Support comma-separated values like "Python, React, MongoDB"
+        const parts = val.split(',').map(s => s.trim()).filter(Boolean);
+        setSkills(prev => [...prev, ...parts.filter(s => !prev.includes(s))]);
         setSkillInput('');
     };
 
     const removeSkill = (s) => setSkills((prev) => prev.filter((x) => x !== s));
 
     const handleSkillKey = (e) => {
-        if (['Enter', ',', 'Tab'].includes(e.key)) {
+        if (['Enter', 'Tab'].includes(e.key)) {
             e.preventDefault();
             addSkill(skillInput);
         }

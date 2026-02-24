@@ -423,7 +423,8 @@ app.get("/api/teams", async (req, res) => {
 
     const filter = {
       lastDate: { $gte: today },
-      $expr: { $lt: [{ $size: "$members" }, "$maxMembers"] },
+      // members.length < maxMembers - 1  (1 slot is reserved for the leader)
+      $expr: { $lt: [{ $size: "$members" }, { $subtract: ["$maxMembers", 1] }] },
     };
 
     if (req.query.email) {
@@ -472,6 +473,58 @@ app.delete("/api/teams/:teamId", async (req, res) => {
     res.json({ message: "Team deleted" });
   } catch (err) {
     console.error("Delete team error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get leader + member profiles for a team (used by detail modal)
+app.get("/api/teams/:teamId/members", async (req, res) => {
+  try {
+    const team = await Team.findById(req.params.teamId).lean();
+    if (!team) return res.status(404).json({ message: "Team not found" });
+
+    const leaderUser = await User.findOne({ email: team.leader }).lean();
+    const memberUsers = team.members?.length
+      ? await User.find({ email: { $in: team.members } }, {
+        name: 1, email: 1, dept: 1, year: 1, gender: 1,
+        preferredRoles: 1, skillStrengths: 1
+      }).lean()
+      : [];
+
+    res.json({
+      leader: leaderUser ? {
+        name: leaderUser.name, email: leaderUser.email,
+        dept: leaderUser.dept, year: leaderUser.year,
+        gender: leaderUser.gender, preferredRoles: leaderUser.preferredRoles,
+        skillStrengths: leaderUser.skillStrengths,
+      } : null,
+      members: memberUsers,
+    });
+  } catch (err) {
+    console.error("Get members error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Edit a team (leader only)
+app.patch("/api/teams/:teamId", async (req, res) => {
+  try {
+    const { leaderEmail, ...updates } = req.body;
+    const team = await Team.findById(req.params.teamId);
+    if (!team) return res.status(404).json({ message: "Team not found" });
+    if (team.leader !== leaderEmail)
+      return res.status(403).json({ message: "Only the leader can edit this team" });
+
+    const allowed = [
+      'hackathonName', 'hackathonPlace', 'hackathonDate', 'lastDate',
+      'problemStatement', 'maxMembers', 'preferredGender',
+      'skillsNeeded', 'requiredRoles', 'requiredSkills',
+    ];
+    allowed.forEach(k => { if (updates[k] !== undefined) team[k] = updates[k]; });
+    await team.save();
+    res.json({ message: "Team updated", team });
+  } catch (err) {
+    console.error("Edit team error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
