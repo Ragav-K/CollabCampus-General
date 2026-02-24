@@ -97,8 +97,9 @@ export default function Profile({ user, setUser }) {
         e.preventDefault();
         setLoading(true); setSaved(false); setError('');
         try {
-            await api('/auth/profile', { method: 'PATCH', body: { email: user.email, ...form } });
-            const updated = { ...user, ...form };
+            const res = await api('/auth/profile', { method: 'PATCH', body: { email: user.email, ...form } });
+            // Use server's returned user (not local merge) so Mongoose Map fields serialize correctly
+            const updated = { ...user, ...res.user };
             localStorage.setItem('user', JSON.stringify(updated));
             setUser(updated);
             setSaved(true);

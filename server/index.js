@@ -107,6 +107,15 @@ const teamSchema = new Schema({
   requiredSkills: { type: Map, of: Number, default: {} }, // { Python: 3, React: 2 }
   requiredRoles: { type: [String], default: [] },
 
+  // ── Custom Matching Weights (set by leader at creation) ──
+  matchingWeights: {
+    skill: { type: Number, default: 35 },
+    role: { type: Number, default: 20 },
+    exp: { type: Number, default: 15 },
+    diversity: { type: Number, default: 20 },
+    gender: { type: Number, default: 10 },
+  },
+
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -360,9 +369,23 @@ authRouter.patch("/profile", async (req, res) => {
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    // Return ALL profile fields so the client can update localStorage correctly
     res.json({
       message: "Profile updated",
-      user: { id: user._id, email: user.email, name: user.name, dept: user.dept, year: user.year },
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        dept: user.dept,
+        year: user.year,
+        gender: user.gender,
+        preferredRoles: user.preferredRoles || [],
+        hackathonInterests: user.hackathonInterests || [],
+        // Convert Mongoose Map to plain object for JSON serialization
+        skillStrengths: user.skillStrengths
+          ? Object.fromEntries(user.skillStrengths)
+          : {},
+      },
     });
   } catch (err) {
     console.error("Profile update error:", err);
@@ -518,7 +541,7 @@ app.patch("/api/teams/:teamId", async (req, res) => {
     const allowed = [
       'hackathonName', 'hackathonPlace', 'hackathonDate', 'lastDate',
       'problemStatement', 'maxMembers', 'preferredGender',
-      'skillsNeeded', 'requiredRoles', 'requiredSkills',
+      'skillsNeeded', 'requiredRoles', 'requiredSkills', 'matchingWeights',
     ];
     allowed.forEach(k => { if (updates[k] !== undefined) team[k] = updates[k]; });
     await team.save();
@@ -628,7 +651,8 @@ app.delete("/api/requests/:teamId/:email", async (req, res) => {
 
 // ---------------- Compatibility Engine ----------------
 
-const WEIGHTS = { skill: 0.35, diversity: 0.20, exp: 0.15, gender: 0.15, role: 0.15 };
+// Default weights used when team has no custom weights (also used as fallback)
+const DEFAULT_WEIGHTS = { skill: 35, role: 20, exp: 15, diversity: 20, gender: 10 };
 const YEAR_NUM = { 'I': 1, 'II': 2, 'III': 3, 'IV': 4 };
 
 function toObj(map) {
@@ -639,6 +663,13 @@ function toObj(map) {
 }
 
 function computeCompatibility(team, user, members) {
+  // ── Resolve per-team weights (normalised to fractions) ──
+  const W = team.matchingWeights || DEFAULT_WEIGHTS;
+  const total = (W.skill || 0) + (W.role || 0) + (W.exp || 0) + (W.diversity || 0) + (W.gender || 0);
+  const w = total > 0
+    ? { skill: W.skill / total, role: W.role / total, exp: W.exp / total, diversity: W.diversity / total, gender: W.gender / total }
+    : { skill: 0.35, role: 0.20, exp: 0.15, diversity: 0.20, gender: 0.10 };
+
   const reqSkills = toObj(team.requiredSkills);
   const userSkills = toObj(user.skillStrengths);
   const reqKeys = Object.keys(reqSkills);
@@ -659,7 +690,7 @@ function computeCompatibility(team, user, members) {
     missingBonus = missingBonus / reqKeys.length;
     redundancyPen = Math.min(redundancyPen / reqKeys.length, 0.3);
   } else {
-    skillMatch = 0.7; // no requirements → neutral-positive
+    skillMatch = 0.7;
   }
   const skillComp = Math.max(0, Math.min(1, skillMatch + missingBonus - redundancyPen));
 
@@ -694,9 +725,9 @@ function computeCompatibility(team, user, members) {
     : userRoles.length === 0 ? 0.5
       : reqRoles.filter(r => userRoles.includes(r)).length / reqRoles.length;
 
-  const raw = WEIGHTS.skill * skillComp + WEIGHTS.diversity * diversity +
-    WEIGHTS.exp * expBalance + WEIGHTS.gender * genderMatch +
-    WEIGHTS.role * roleFit;
+  // ── Weighted sum using per-team weights ──
+  const raw = w.skill * skillComp + w.diversity * diversity +
+    w.exp * expBalance + w.gender * genderMatch + w.role * roleFit;
   const score = Math.round(raw * 100);
 
   return {
@@ -708,6 +739,13 @@ function computeCompatibility(team, user, members) {
       expBalance: Math.round(expBalance * 100),
       genderMatch: Math.round(genderMatch * 100),
       roleFit: Math.round(roleFit * 100),
+    },
+    weights: { // expose for UI
+      skill: Math.round(w.skill * 100),
+      diversity: Math.round(w.diversity * 100),
+      exp: Math.round(w.exp * 100),
+      gender: Math.round(w.gender * 100),
+      role: Math.round(w.role * 100),
     },
   };
 }
