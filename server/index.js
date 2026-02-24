@@ -116,15 +116,12 @@ const teamSchema = new Schema({
     gender: { type: Number, default: 10 },
   },
 
-  // ── Auto-normalized Matching Preferences (new system) ──
-  // Each factor: { enabled: Boolean, weight: 0-10 }
-  // computeCompatibility normalizes against sum of enabled weights automatically
+  // ── Auto-normalized Matching Preferences (3-factor system) ──
+  // score = skill + role + diversity (normalized); gender is a hard filter, not a weight
   matchingPreferences: {
     skill: { enabled: { type: Boolean, default: true }, weight: { type: Number, default: 8 } },
     role: { enabled: { type: Boolean, default: true }, weight: { type: Number, default: 6 } },
-    exp: { enabled: { type: Boolean, default: true }, weight: { type: Number, default: 5 } },
     diversity: { enabled: { type: Boolean, default: true }, weight: { type: Number, default: 4 } },
-    gender: { enabled: { type: Boolean, default: false }, weight: { type: Number, default: 0 } },
   },
 
   createdAt: { type: Date, default: Date.now },
@@ -662,8 +659,8 @@ app.delete("/api/requests/:teamId/:email", async (req, res) => {
 
 // ---------------- Compatibility Engine ----------------
 
-// Default weights used as fallback
-const DEFAULT_WEIGHTS = { skill: 35, role: 20, exp: 15, diversity: 20, gender: 10 };
+// Default weights used as fallback (fractions, 3-factor system)
+const DEFAULT_WEIGHTS = { skill: 0.45, role: 0.35, diversity: 0.20 };
 const YEAR_NUM = { 'I': 1, 'II': 2, 'III': 3, 'IV': 4 };
 
 function toObj(map) {
@@ -674,58 +671,62 @@ function toObj(map) {
 }
 
 /**
- * Resolve per-team weights as normalised fractions.
- * Priority: matchingPreferences (auto-normalized) > matchingWeights (legacy) > default
+ * Resolve per-team weights as normalised fractions over 3 factors.
+ * Priority: matchingPreferences (auto-normalized) > hard defaults
  */
 function resolveWeights(team) {
   const mp = team.matchingPreferences;
+  const keys = ['skill', 'role', 'diversity'];
   if (mp && typeof mp === 'object') {
-    const keys = ['skill', 'role', 'exp', 'diversity', 'gender'];
     const total = keys.reduce((s, k) => s + (mp[k]?.enabled ? (mp[k]?.weight || 0) : 0), 0);
     if (total > 0) {
       const w = {};
-      keys.forEach(k => { w[k] = (mp[k]?.enabled && total > 0) ? (mp[k].weight / total) : 0; });
+      keys.forEach(k => { w[k] = (mp[k]?.enabled) ? (mp[k].weight / total) : 0; });
       return w;
     }
   }
-  // Legacy exact-% system
-  const mw = team.matchingWeights;
-  if (mw) {
-    const total = (mw.skill || 0) + (mw.role || 0) + (mw.exp || 0) + (mw.diversity || 0) + (mw.gender || 0);
-    if (total > 0)
-      return { skill: mw.skill / total, role: mw.role / total, exp: mw.exp / total, diversity: mw.diversity / total, gender: mw.gender / total };
-  }
-  return { skill: 0.35, role: 0.20, exp: 0.15, diversity: 0.20, gender: 0.10 };
+  return { ...DEFAULT_WEIGHTS };
 }
 
 function computeCompatibility(team, user, members) {
+  // Gender is a hard FILTER — not a weighted factor
+  if (team.preferredGender === 'Male' && user.gender !== 'Male')
+    return { score: 0, label: 'No Match', breakdown: { skillComp: 0, diversity: 0, roleFit: 0 }, filtered: true };
+  if (team.preferredGender === 'Female' && user.gender !== 'Female')
+    return { score: 0, label: 'No Match', breakdown: { skillComp: 0, diversity: 0, roleFit: 0 }, filtered: true };
+
   const w = resolveWeights(team);
 
+  // ─ 1. Skill Coverage Complementarity ─
   const reqSkills = toObj(team.requiredSkills);
   const userSkills = toObj(user.skillStrengths);
   const reqKeys = Object.keys(reqSkills);
-
-  // ─ 1. Skill Coverage Complementarity ─
   let skillMatch = 0, missingBonus = 0, redundancyPen = 0;
   if (reqKeys.length > 0) {
     for (const skill of reqKeys) {
       const required = reqSkills[skill] || 1;
       const userLevel = userSkills[skill] || 0;
       skillMatch += Math.min(userLevel / required, 1.0);
-
       const membersWithSkill = members.filter(m => (toObj(m.skillStrengths)[skill] || 0) >= required).length;
       if (membersWithSkill === 0 && userLevel >= required) missingBonus++;
       if (membersWithSkill >= 2) redundancyPen++;
     }
     skillMatch /= reqKeys.length;
-    missingBonus = missingBonus / reqKeys.length;
+    missingBonus /= reqKeys.length;
     redundancyPen = Math.min(redundancyPen / reqKeys.length, 0.3);
   } else {
     skillMatch = 0.7;
   }
   const skillComp = Math.max(0, Math.min(1, skillMatch + missingBonus - redundancyPen));
 
-  // ─ 2. Simpson Diversity Index ─
+  // ─ 2. Role Fit ─
+  const reqRoles = team.requiredRoles || [];
+  const userRoles = user.preferredRoles || [];
+  const roleFit = reqRoles.length === 0 ? 1.0
+    : userRoles.length === 0 ? 0.5
+      : reqRoles.filter(r => userRoles.includes(r)).length / reqRoles.length;
+
+  // ─ 3. Simpson Diversity Index ─
   const depts = [...members.map(m => m.dept), user.dept].filter(Boolean);
   let diversity = 0.5;
   if (depts.length > 0) {
@@ -735,30 +736,7 @@ function computeCompatibility(team, user, members) {
     diversity = 1 - Object.values(counts).reduce((s, c) => s + (c / n) ** 2, 0);
   }
 
-  // ─ 3. Std-Dev Experience Balance ─
-  const years = [...members.map(m => YEAR_NUM[m.year]), YEAR_NUM[user.year]].filter(Boolean);
-  let expBalance = 0.5;
-  if (years.length > 1) {
-    const mean = years.reduce((a, b) => a + b, 0) / years.length;
-    const variance = years.reduce((s, y) => s + (y - mean) ** 2, 0) / years.length;
-    expBalance = Math.min(Math.sqrt(variance) / 1.5, 1.0);
-  }
-
-  // ─ 4. Gender Match ─
-  let genderMatch = 1.0;
-  if (team.preferredGender === 'Male' && user.gender !== 'Male') genderMatch = 0.0;
-  if (team.preferredGender === 'Female' && user.gender !== 'Female') genderMatch = 0.0;
-
-  // ─ 5. Role Fit ─
-  const reqRoles = team.requiredRoles || [];
-  const userRoles = user.preferredRoles || [];
-  const roleFit = reqRoles.length === 0 ? 1.0
-    : userRoles.length === 0 ? 0.5
-      : reqRoles.filter(r => userRoles.includes(r)).length / reqRoles.length;
-
-  // ── Weighted sum using per-team weights ──
-  const raw = w.skill * skillComp + w.diversity * diversity +
-    w.exp * expBalance + w.gender * genderMatch + w.role * roleFit;
+  const raw = w.skill * skillComp + w.role * roleFit + w.diversity * diversity;
   const score = Math.round(raw * 100);
 
   return {
@@ -766,17 +744,13 @@ function computeCompatibility(team, user, members) {
     label: score >= 75 ? 'Highly Compatible' : score >= 50 ? 'Moderate Match' : 'Weak Match',
     breakdown: {
       skillComp: Math.round(skillComp * 100),
-      diversity: Math.round(diversity * 100),
-      expBalance: Math.round(expBalance * 100),
-      genderMatch: Math.round(genderMatch * 100),
       roleFit: Math.round(roleFit * 100),
+      diversity: Math.round(diversity * 100),
     },
-    weights: { // expose for UI
+    weights: {
       skill: Math.round(w.skill * 100),
-      diversity: Math.round(w.diversity * 100),
-      exp: Math.round(w.exp * 100),
-      gender: Math.round(w.gender * 100),
       role: Math.round(w.role * 100),
+      diversity: Math.round(w.diversity * 100),
     },
   };
 }

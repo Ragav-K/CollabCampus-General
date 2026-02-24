@@ -10,16 +10,13 @@ const LEVEL_LABELS = ['', 'Beginner', 'Basic', 'Intermediate', 'Advanced', 'Expe
 const FACTORS = [
     { key: 'skill', icon: '⌨️', title: 'Skill Compatibility', desc: 'Measures how well a member\'s technical skills match your required technologies (React, AI, Backend, ML, UI/UX, etc.).', defaultW: 8, defaultOn: true, color: '#2563EB' },
     { key: 'role', icon: '🪪', title: 'Role Fit', desc: 'Evaluates whether the member fits the specific role your team needs (Developer, Designer, Presenter, ML Engineer).', defaultW: 6, defaultOn: true, color: '#7C3AED' },
-    { key: 'exp', icon: '🏆', title: 'Experience Level', desc: 'Considers hackathon participation, internships, projects, certifications, and practical exposure.', defaultW: 5, defaultOn: true, color: '#D97706' },
-    { key: 'diversity', icon: '🌐', title: 'Diversity Preference', desc: 'Encourages members from different departments, academic years, or varied technical backgrounds.', defaultW: 4, defaultOn: true, color: '#059669' },
-    { key: 'gender', icon: '⚖️', title: 'Gender Balance', desc: 'Adjust how strongly gender balance influences matching. Disable if not relevant to your team.', defaultW: 0, defaultOn: false, color: '#DB2777' },
+    { key: 'diversity', icon: '🌐', title: 'Diversity Preference', desc: 'Encourages inclusion of members from different departments, academic years, or varied technical backgrounds.', defaultW: 4, defaultOn: true, color: '#059669' },
 ];
 
 const PRESETS = {
-    skill: { label: '⌨️ Skill-Focused', color: '#2563EB', values: { skill: { e: true, w: 10 }, role: { e: true, w: 5 }, exp: { e: true, w: 4 }, diversity: { e: false, w: 0 }, gender: { e: false, w: 0 } } },
-    balanced: { label: '⚖️ Balanced Team', color: '#059669', values: { skill: { e: true, w: 6 }, role: { e: true, w: 6 }, exp: { e: true, w: 5 }, diversity: { e: true, w: 5 }, gender: { e: true, w: 4 } } },
-    diversity: { label: '🌐 Diversity-First', color: '#7C3AED', values: { skill: { e: true, w: 5 }, role: { e: true, w: 4 }, exp: { e: false, w: 0 }, diversity: { e: true, w: 10 }, gender: { e: true, w: 6 } } },
-    experience: { label: '🏆 Experience-Driven', color: '#D97706', values: { skill: { e: true, w: 6 }, role: { e: true, w: 4 }, exp: { e: true, w: 10 }, diversity: { e: false, w: 0 }, gender: { e: false, w: 0 } } },
+    skill: { label: '⌨️ Skill-Focused', color: '#2563EB', values: { skill: { e: true, w: 10 }, role: { e: true, w: 4 }, diversity: { e: false, w: 0 } } },
+    balanced: { label: '⚖️ Balanced Team', color: '#059669', values: { skill: { e: true, w: 6 }, role: { e: true, w: 6 }, diversity: { e: true, w: 6 } } },
+    diversity: { label: '🌐 Diversity-Focused', color: '#7C3AED', values: { skill: { e: true, w: 4 }, role: { e: true, w: 4 }, diversity: { e: true, w: 10 } } },
 };
 
 const priorityLabel = (w) => w === 0 ? 'Off' : w <= 3 ? 'Low' : w <= 6 ? 'Medium' : w <= 8 ? 'High' : 'Critical';
