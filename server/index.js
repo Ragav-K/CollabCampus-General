@@ -107,13 +107,24 @@ const teamSchema = new Schema({
   requiredSkills: { type: Map, of: Number, default: {} }, // { Python: 3, React: 2 }
   requiredRoles: { type: [String], default: [] },
 
-  // ── Custom Matching Weights (set by leader at creation) ──
+  // ── Custom Matching Weights (legacy exact-% system) ──
   matchingWeights: {
     skill: { type: Number, default: 35 },
     role: { type: Number, default: 20 },
     exp: { type: Number, default: 15 },
     diversity: { type: Number, default: 20 },
     gender: { type: Number, default: 10 },
+  },
+
+  // ── Auto-normalized Matching Preferences (new system) ──
+  // Each factor: { enabled: Boolean, weight: 0-10 }
+  // computeCompatibility normalizes against sum of enabled weights automatically
+  matchingPreferences: {
+    skill: { enabled: { type: Boolean, default: true }, weight: { type: Number, default: 8 } },
+    role: { enabled: { type: Boolean, default: true }, weight: { type: Number, default: 6 } },
+    exp: { enabled: { type: Boolean, default: true }, weight: { type: Number, default: 5 } },
+    diversity: { enabled: { type: Boolean, default: true }, weight: { type: Number, default: 4 } },
+    gender: { enabled: { type: Boolean, default: false }, weight: { type: Number, default: 0 } },
   },
 
   createdAt: { type: Date, default: Date.now },
@@ -541,7 +552,7 @@ app.patch("/api/teams/:teamId", async (req, res) => {
     const allowed = [
       'hackathonName', 'hackathonPlace', 'hackathonDate', 'lastDate',
       'problemStatement', 'maxMembers', 'preferredGender',
-      'skillsNeeded', 'requiredRoles', 'requiredSkills', 'matchingWeights',
+      'skillsNeeded', 'requiredRoles', 'requiredSkills', 'matchingWeights', 'matchingPreferences',
     ];
     allowed.forEach(k => { if (updates[k] !== undefined) team[k] = updates[k]; });
     await team.save();
@@ -651,7 +662,7 @@ app.delete("/api/requests/:teamId/:email", async (req, res) => {
 
 // ---------------- Compatibility Engine ----------------
 
-// Default weights used when team has no custom weights (also used as fallback)
+// Default weights used as fallback
 const DEFAULT_WEIGHTS = { skill: 35, role: 20, exp: 15, diversity: 20, gender: 10 };
 const YEAR_NUM = { 'I': 1, 'II': 2, 'III': 3, 'IV': 4 };
 
@@ -662,13 +673,33 @@ function toObj(map) {
   return {};
 }
 
+/**
+ * Resolve per-team weights as normalised fractions.
+ * Priority: matchingPreferences (auto-normalized) > matchingWeights (legacy) > default
+ */
+function resolveWeights(team) {
+  const mp = team.matchingPreferences;
+  if (mp && typeof mp === 'object') {
+    const keys = ['skill', 'role', 'exp', 'diversity', 'gender'];
+    const total = keys.reduce((s, k) => s + (mp[k]?.enabled ? (mp[k]?.weight || 0) : 0), 0);
+    if (total > 0) {
+      const w = {};
+      keys.forEach(k => { w[k] = (mp[k]?.enabled && total > 0) ? (mp[k].weight / total) : 0; });
+      return w;
+    }
+  }
+  // Legacy exact-% system
+  const mw = team.matchingWeights;
+  if (mw) {
+    const total = (mw.skill || 0) + (mw.role || 0) + (mw.exp || 0) + (mw.diversity || 0) + (mw.gender || 0);
+    if (total > 0)
+      return { skill: mw.skill / total, role: mw.role / total, exp: mw.exp / total, diversity: mw.diversity / total, gender: mw.gender / total };
+  }
+  return { skill: 0.35, role: 0.20, exp: 0.15, diversity: 0.20, gender: 0.10 };
+}
+
 function computeCompatibility(team, user, members) {
-  // ── Resolve per-team weights (normalised to fractions) ──
-  const W = team.matchingWeights || DEFAULT_WEIGHTS;
-  const total = (W.skill || 0) + (W.role || 0) + (W.exp || 0) + (W.diversity || 0) + (W.gender || 0);
-  const w = total > 0
-    ? { skill: W.skill / total, role: W.role / total, exp: W.exp / total, diversity: W.diversity / total, gender: W.gender / total }
-    : { skill: 0.35, role: 0.20, exp: 0.15, diversity: 0.20, gender: 0.10 };
+  const w = resolveWeights(team);
 
   const reqSkills = toObj(team.requiredSkills);
   const userSkills = toObj(user.skillStrengths);
@@ -819,7 +850,12 @@ app.get("/api/teams/:teamId/suggestions", async (req, res) => {
 
     const scored = candidates
       .map(u => ({
-        user: { name: u.name, email: u.email, dept: u.dept, year: u.year, preferredRoles: u.preferredRoles },
+        user: {
+          name: u.name, email: u.email, dept: u.dept, year: u.year,
+          gender: u.gender,
+          preferredRoles: u.preferredRoles,
+          skillStrengths: u.skillStrengths ? Object.fromEntries(u.skillStrengths) : {},
+        },
         ...computeCompatibility(team, u, members),
       }))
       .sort((a, b) => b.score - a.score)

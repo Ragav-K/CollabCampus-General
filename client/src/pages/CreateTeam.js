@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 
@@ -6,157 +6,130 @@ const GENDER_OPTIONS = ['No Preference', 'Male', 'Female'];
 const ROLE_OPTIONS = ['Frontend', 'Backend', 'AI/ML', 'UI/UX Design', 'Marketing', 'PPT/Presentation'];
 const LEVEL_LABELS = ['', 'Beginner', 'Basic', 'Intermediate', 'Advanced', 'Expert'];
 
-const DEFAULT_WEIGHTS = { skill: 35, role: 20, exp: 15, diversity: 20, gender: 10 };
-
+// ── Factor definitions ──────────────────────────────────────
 const FACTORS = [
-    {
-        key: 'skill',
-        icon: '⌨️',
-        title: 'Skill Compatibility',
-        desc: 'How well a member\'s technical skills match your required technologies (React, AI, Backend, ML, etc.).',
-        color: '#2563EB',
-    },
-    {
-        key: 'role',
-        icon: '🪪',
-        title: 'Role Fit',
-        desc: 'Whether the member fits the specific role your team needs (Developer, Designer, Presenter, ML Engineer).',
-        color: '#7C3AED',
-    },
-    {
-        key: 'exp',
-        icon: '🏆',
-        title: 'Experience Balance',
-        desc: 'Rewards teams with varied seniority levels across years (I–IV) for a balanced senior-junior mix.',
-        color: '#D97706',
-    },
-    {
-        key: 'diversity',
-        icon: '🌐',
-        title: 'Diversity Preference',
-        desc: 'Encourages members from different departments and academic years for richer team perspectives.',
-        color: '#059669',
-    },
-    {
-        key: 'gender',
-        icon: '⚖️',
-        title: 'Gender Balance',
-        desc: 'Adjust how strongly gender balance influences matching. Set to 0% if not relevant.',
-        color: '#DB2777',
-    },
+    { key: 'skill', icon: '⌨️', title: 'Skill Compatibility', desc: 'Measures how well a member\'s technical skills match your required technologies (React, AI, Backend, ML, UI/UX, etc.).', defaultW: 8, defaultOn: true, color: '#2563EB' },
+    { key: 'role', icon: '🪪', title: 'Role Fit', desc: 'Evaluates whether the member fits the specific role your team needs (Developer, Designer, Presenter, ML Engineer).', defaultW: 6, defaultOn: true, color: '#7C3AED' },
+    { key: 'exp', icon: '🏆', title: 'Experience Level', desc: 'Considers hackathon participation, internships, projects, certifications, and practical exposure.', defaultW: 5, defaultOn: true, color: '#D97706' },
+    { key: 'diversity', icon: '🌐', title: 'Diversity Preference', desc: 'Encourages members from different departments, academic years, or varied technical backgrounds.', defaultW: 4, defaultOn: true, color: '#059669' },
+    { key: 'gender', icon: '⚖️', title: 'Gender Balance', desc: 'Adjust how strongly gender balance influences matching. Disable if not relevant to your team.', defaultW: 0, defaultOn: false, color: '#DB2777' },
 ];
 
-// ── Weight Slider Card ──────────────────────────────────────────
-function FactorSlider({ factor, value, onChange }) {
-    return (
-        <div className="weight-card" style={{
-            background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12,
-            padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10,
-            transition: 'box-shadow 0.18s',
-        }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                    <span style={{ fontSize: '1.3rem', lineHeight: 1.2 }}>{factor.icon}</span>
-                    <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#111827', marginBottom: 2 }}>{factor.title}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#6B7280', lineHeight: 1.5, maxWidth: 240 }}>{factor.desc}</div>
-                    </div>
-                </div>
-                {/* Numeric input */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-                    <input
-                        type="number" min={0} max={100} value={value}
-                        onChange={e => onChange(Math.min(100, Math.max(0, Number(e.target.value))))}
-                        style={{
-                            width: 52, textAlign: 'center', fontWeight: 700, fontSize: '1rem',
-                            color: factor.color, border: '1.5px solid #E5E7EB', borderRadius: 8,
-                            padding: '4px 2px', outline: 'none', background: '#F9FAFB',
-                        }}
-                    />
-                    <span style={{ fontSize: '0.85rem', color: '#9CA3AF' }}>%</span>
-                </div>
-            </div>
+const PRESETS = {
+    skill: { label: '⌨️ Skill-Focused', color: '#2563EB', values: { skill: { e: true, w: 10 }, role: { e: true, w: 5 }, exp: { e: true, w: 4 }, diversity: { e: false, w: 0 }, gender: { e: false, w: 0 } } },
+    balanced: { label: '⚖️ Balanced Team', color: '#059669', values: { skill: { e: true, w: 6 }, role: { e: true, w: 6 }, exp: { e: true, w: 5 }, diversity: { e: true, w: 5 }, gender: { e: true, w: 4 } } },
+    diversity: { label: '🌐 Diversity-First', color: '#7C3AED', values: { skill: { e: true, w: 5 }, role: { e: true, w: 4 }, exp: { e: false, w: 0 }, diversity: { e: true, w: 10 }, gender: { e: true, w: 6 } } },
+    experience: { label: '🏆 Experience-Driven', color: '#D97706', values: { skill: { e: true, w: 6 }, role: { e: true, w: 4 }, exp: { e: true, w: 10 }, diversity: { e: false, w: 0 }, gender: { e: false, w: 0 } } },
+};
 
-            {/* Slider */}
-            <input type="range" min={0} max={100} value={value}
-                onChange={e => onChange(Number(e.target.value))}
-                style={{ accentColor: factor.color, width: '100%', cursor: 'pointer' }} />
+const priorityLabel = (w) => w === 0 ? 'Off' : w <= 3 ? 'Low' : w <= 6 ? 'Medium' : w <= 8 ? 'High' : 'Critical';
+const priorityColor = (w) => w === 0 ? '#9CA3AF' : w <= 3 ? '#D97706' : w <= 6 ? '#2563EB' : w <= 8 ? '#059669' : '#DC2626';
 
-            {/* Mini bar */}
-            <div style={{ height: 4, borderRadius: 4, background: '#F3F4F6', overflow: 'hidden' }}>
-                <div style={{
-                    height: '100%', width: `${value}%`,
-                    background: factor.color, borderRadius: 4,
-                    transition: 'width 0.2s ease',
-                }} />
-            </div>
-        </div>
-    );
-}
+const defaultPrefs = () => Object.fromEntries(FACTORS.map(f => [f.key, { e: f.defaultOn, w: f.defaultW }]));
 
-// ── Weights Summary Bar ────────────────────────────────────────
-function WeightsSummary({ weights }) {
-    const total = Object.values(weights).reduce((a, b) => a + b, 0);
-    const pct = Math.min(total, 100);
-    const color = total === 100 ? '#059669' : total > 100 ? '#DC2626' : '#D97706';
-    const bgColor = total === 100 ? '#D1FAE5' : total > 100 ? '#FEE2E2' : '#FEF3C7';
+// ── Factor Card ─────────────────────────────────────────────
+function FactorCard({ factor, pref, onChange }) {
+    const { e: enabled, w: weight } = pref;
 
     return (
         <div style={{
-            border: `1.5px solid ${color}`, borderRadius: 12, padding: '16px 20px',
-            background: bgColor, display: 'flex', flexDirection: 'column', gap: 10,
+            background: enabled ? '#fff' : '#F9FAFB',
+            border: `1.5px solid ${enabled ? '#E5E7EB' : '#F3F4F6'}`,
+            borderRadius: 14, padding: '18px 20px',
+            opacity: enabled ? 1 : 0.6,
+            transition: 'all 0.2s ease',
         }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#111827' }}>Compatibility Weight Summary</span>
-                <span style={{ fontWeight: 800, fontSize: '1.05rem', color }}>
-                    {total}% / 100%
-                </span>
+            {/* Header: icon + title + toggle */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: '1.25rem', lineHeight: 1.2, filter: enabled ? 'none' : 'grayscale(1)' }}>{factor.icon}</span>
+                    <div>
+                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#111827' }}>{factor.title}</div>
+                        <div style={{ fontSize: '0.74rem', color: '#6B7280', lineHeight: 1.5, marginTop: 2 }}>{factor.desc}</div>
+                    </div>
+                </div>
+                {/* Toggle */}
+                <div onClick={() => onChange({ e: !enabled, w: !enabled ? (factor.defaultW || 5) : 0 })}
+                    style={{ flexShrink: 0, width: 38, height: 21, borderRadius: 11, background: enabled ? factor.color : '#D1D5DB', position: 'relative', cursor: 'pointer', transition: 'background 0.2s' }}>
+                    <div style={{ position: 'absolute', top: 3, left: enabled ? 19 : 3, width: 15, height: 15, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
+                </div>
             </div>
 
-            {/* Progress bar */}
-            <div style={{ height: 8, borderRadius: 8, background: '#E5E7EB', overflow: 'hidden' }}>
-                <div style={{
-                    height: '100%', width: `${pct}%`, background: color, borderRadius: 8,
-                    transition: 'width 0.25s ease, background 0.25s ease',
-                }} />
-            </div>
-
-            {/* Factor breakdown mini-bars */}
-            <div style={{ display: 'flex', height: 6, borderRadius: 6, overflow: 'hidden', gap: 2 }}>
-                {FACTORS.map(f => (
-                    <div key={f.key} title={`${f.title}: ${weights[f.key]}%`}
-                        style={{
-                            flex: weights[f.key], background: f.color, minWidth: weights[f.key] > 0 ? 2 : 0,
-                            transition: 'flex 0.25s ease',
-                        }} />
-                ))}
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px' }}>
-                {FACTORS.map(f => (
-                    <span key={f.key} style={{ fontSize: '0.72rem', color: '#6B7280' }}>
-                        <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: f.color, marginRight: 4 }} />
-                        {f.title.split(' ')[0]}: <strong style={{ color: '#374151' }}>{weights[f.key]}%</strong>
+            {/* Importance slider */}
+            <div style={{ marginTop: 12, opacity: enabled ? 1 : 0.4, pointerEvents: enabled ? 'auto' : 'none' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <div style={{ display: 'flex', gap: 6, fontSize: '0.7rem', color: '#9CA3AF' }}>
+                        <span>Low</span><span>—</span><span>Medium</span><span>—</span><span>High</span>
+                    </div>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: priorityColor(weight) }}>
+                        {priorityLabel(weight)}
                     </span>
-                ))}
+                </div>
+                <input type="range" min={0} max={10} value={weight}
+                    onChange={e => onChange({ e: enabled, w: Number(e.target.value) })}
+                    style={{ accentColor: factor.color, width: '100%', cursor: 'pointer' }} />
+                {/* Mini fill bar */}
+                <div style={{ height: 3, borderRadius: 3, background: '#F3F4F6', marginTop: 4, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${weight * 10}%`, background: factor.color, borderRadius: 3, transition: 'width 0.2s ease' }} />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── Distribution Preview Bar ─────────────────────────────────
+function DistributionBar({ prefs }) {
+    const [showBreakdown, setShowBreakdown] = useState(false);
+    const enabled = FACTORS.filter(f => prefs[f.key]?.e);
+    const total = enabled.reduce((s, f) => s + (prefs[f.key]?.w || 0), 0);
+
+    if (enabled.length === 0) return null;
+
+    return (
+        <div style={{ background: '#F8FAFC', border: '1px solid #E5E7EB', borderRadius: 12, padding: '16px 18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ fontWeight: 600, fontSize: '0.83rem', color: '#374151' }}>Compatibility Distribution Preview</span>
+                <button type="button" onClick={() => setShowBreakdown(v => !v)}
+                    style={{ fontSize: '0.72rem', color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                    {showBreakdown ? 'Hide breakdown' : 'Preview breakdown'}
+                </button>
             </div>
 
-            {total !== 100 && (
-                <div style={{ fontSize: '0.8rem', color: color, fontWeight: 600 }}>
-                    {total > 100
-                        ? `⚠️ Reduce by ${total - 100}% — total must equal exactly 100%.`
-                        : `⚠️ Add ${100 - total}% more — total must equal exactly 100%.`}
-                </div>
-            )}
-            {total === 100 && (
-                <div style={{ fontSize: '0.8rem', color: '#059669', fontWeight: 600 }}>
-                    ✓ Perfect — compatibility engine is ready.
-                </div>
+            {/* Stacked horizontal bar */}
+            <div style={{ display: 'flex', height: 10, borderRadius: 8, overflow: 'hidden', gap: 2, marginBottom: 10 }}>
+                {enabled.map(f => {
+                    const pct = total > 0 ? ((prefs[f.key]?.w || 0) / total) * 100 : 0;
+                    return pct > 0 ? (
+                        <div key={f.key} title={`${f.title}: ${Math.round(pct)}%`}
+                            style={{ flex: prefs[f.key]?.w, background: f.color, transition: 'flex 0.3s ease', minWidth: 2 }} />
+                    ) : null;
+                })}
+            </div>
+
+            {/* Factor labels */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px' }}>
+                {enabled.map(f => {
+                    const pct = total > 0 ? Math.round(((prefs[f.key]?.w || 0) / total) * 100) : 0;
+                    return (
+                        <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.73rem', color: '#6B7280' }}>
+                            <div style={{ width: 8, height: 8, borderRadius: 2, background: f.color, flexShrink: 0 }} />
+                            <span>{f.title.split(' ')[0]}</span>
+                            {showBreakdown && <span style={{ fontWeight: 700, color: f.color }}>{pct}%</span>}
+                        </div>
+                    );
+                })}
+            </div>
+
+            {!showBreakdown && (
+                <p style={{ fontSize: '0.71rem', color: '#9CA3AF', marginTop: 8 }}>
+                    Final percentages are automatically calculated when your team is created.
+                </p>
             )}
         </div>
     );
 }
 
-// ── Main ───────────────────────────────────────────────────────
+// ── Main Form ────────────────────────────────────────────────
 export default function CreateTeam({ user }) {
     const navigate = useNavigate();
 
@@ -172,55 +145,62 @@ export default function CreateTeam({ user }) {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // ── Matching weights state ──
-    const [useCustomWeights, setUseCustomWeights] = useState(true);
-    const [weights, setWeights] = useState({ ...DEFAULT_WEIGHTS });
-    const totalWeight = Object.values(weights).reduce((a, b) => a + b, 0);
+    // ── Matching preferences (auto-normalized) ──
+    const [useMatching, setUseMatching] = useState(true);
+    const [prefs, setPrefs] = useState(defaultPrefs());
+    const [activePreset, setActivePreset] = useState(null);
 
-    const setW = (key, val) => setWeights(w => ({ ...w, [key]: val }));
-    const resetWeights = () => setWeights({ ...DEFAULT_WEIGHTS });
+    const applyPreset = (key) => {
+        const p = PRESETS[key];
+        const mapped = {};
+        Object.entries(p.values).forEach(([k, v]) => { mapped[k] = { e: v.e, w: v.w }; });
+        setPrefs(mapped);
+        setActivePreset(key);
+    };
 
-    const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+    const setPref = (key, val) => {
+        setPrefs(p => ({ ...p, [key]: val }));
+        setActivePreset(null); // custom after manual change
+    };
 
-    const addSkill = (val) => {
+    // Build matchingPreferences payload for API
+    const matchingPreferences = useMemo(() => {
+        const result = {};
+        FACTORS.forEach(f => { result[f.key] = { enabled: prefs[f.key]?.e ?? false, weight: prefs[f.key]?.w ?? 0 }; });
+        return result;
+    }, [prefs]);
+
+    const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+    const addSkill = val => {
         const parts = val.split(',').map(s => s.trim()).filter(Boolean);
         setSkills(prev => [...prev, ...parts.filter(s => !prev.includes(s))]);
         setSkillInput('');
     };
-    const removeSkill = (s) => setSkills(prev => prev.filter(x => x !== s));
-    const handleSkillKey = (e) => {
-        if (['Enter', 'Tab'].includes(e.key)) { e.preventDefault(); addSkill(skillInput); }
-    };
-    const toggleRole = (role) => setRequiredRoles(prev =>
-        prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]);
-    const addReqSkill = (val) => {
+    const removeSkill = s => setSkills(prev => prev.filter(x => x !== s));
+    const handleSkillKey = e => { if (['Enter', 'Tab'].includes(e.key)) { e.preventDefault(); addSkill(skillInput); } };
+    const toggleRole = role => setRequiredRoles(prev => prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]);
+    const addReqSkill = val => {
         const t = val.trim(); if (!t || reqSkills[t]) return;
         setReqSkills(s => ({ ...s, [t]: 3 })); setReqSkillInput('');
     };
-    const removeReqSkill = (s) => { const n = { ...reqSkills }; delete n[s]; setReqSkills(n); };
+    const removeReqSkill = s => { const n = { ...reqSkills }; delete n[s]; setReqSkills(n); };
     const setReqLevel = (s, l) => setReqSkills(prev => ({ ...prev, [s]: l }));
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = async e => {
         e.preventDefault(); setError('');
         if (!form.hackathonName || !form.hackathonDate || !form.lastDate || !form.maxMembers) {
             setError('Please fill in all required fields.'); return;
         }
-        if (Number(form.maxMembers) < 2) {
-            setError('Team must have at least 2 members.'); return;
-        }
-        if (useCustomWeights && totalWeight !== 100) {
-            setError('Matching weights must total exactly 100% before posting.'); return;
-        }
+        if (Number(form.maxMembers) < 2) { setError('Team must have at least 2 members.'); return; }
         setLoading(true);
         try {
             await api('/api/teams', {
                 body: {
-                    ...form,
-                    maxMembers: Number(form.maxMembers),
+                    ...form, maxMembers: Number(form.maxMembers),
                     skillsNeeded: skills, requiredRoles, requiredSkills: reqSkills,
                     leader: user.email, leaderName: user.name,
                     leaderDept: user.dept || '', leaderYear: user.year || '', leaderGender: user.gender || '',
-                    matchingWeights: useCustomWeights ? weights : DEFAULT_WEIGHTS,
+                    matchingPreferences: useMatching ? matchingPreferences : null,
                 },
             });
             navigate('/created');
@@ -228,13 +208,11 @@ export default function CreateTeam({ user }) {
         finally { setLoading(false); }
     };
 
-    const sectionLabel = (text) => (
+    const sectionLabel = text => (
         <p style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: -4 }}>
             {text}
         </p>
     );
-
-    const isSubmitDisabled = loading || (useCustomWeights && totalWeight !== 100);
 
     return (
         <div className="page">
@@ -311,18 +289,16 @@ export default function CreateTeam({ user }) {
                         {sectionLabel('Matching Requirements')}
                         <div className="form-group">
                             <label className="label">Roles Needed</label>
-                            <span className="hint">Click to select roles you need in your team</span>
+                            <span className="hint">Click to select roles you need</span>
                             <div className="role-chips" style={{ marginTop: 8 }}>
                                 {ROLE_OPTIONS.map(r => (
-                                    <button key={r} type="button"
-                                        className={`role-chip${requiredRoles.includes(r) ? ' active' : ''}`}
-                                        onClick={() => toggleRole(r)}>{r}</button>
+                                    <button key={r} type="button" className={`role-chip${requiredRoles.includes(r) ? ' active' : ''}`} onClick={() => toggleRole(r)}>{r}</button>
                                 ))}
                             </div>
                         </div>
                         <div className="form-group">
                             <label className="label">Minimum Skill Requirements</label>
-                            <span className="hint">Add skills and set minimum proficiency level</span>
+                            <span className="hint">Add skills and set minimum proficiency — used by the matching engine</span>
                             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                                 <input className="input" placeholder="e.g. Python" value={reqSkillInput}
                                     onChange={e => setReqSkillInput(e.target.value)}
@@ -336,9 +312,7 @@ export default function CreateTeam({ user }) {
                                         <span className="skill-name">{skill}</span>
                                         <div className="skill-dots">
                                             {[1, 2, 3, 4, 5].map(n => (
-                                                <button key={n} type="button"
-                                                    className={`skill-dot${level >= n ? ' filled' : ''}`}
-                                                    onClick={() => setReqLevel(skill, n)} title={LEVEL_LABELS[n]} />
+                                                <button key={n} type="button" className={`skill-dot${level >= n ? ' filled' : ''}`} onClick={() => setReqLevel(skill, n)} title={LEVEL_LABELS[n]} />
                                             ))}
                                         </div>
                                         <span className="skill-level-label">{LEVEL_LABELS[level]}+</span>
@@ -352,64 +326,76 @@ export default function CreateTeam({ user }) {
 
                     <hr className="form-divider" />
 
-                    {/* ── Advanced Matching Weights ── */}
+                    {/* ── Advanced Matching Preferences ── */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        {/* Header row with toggle */}
+                        {/* Section header + toggle */}
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                             <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <span style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>🧠 Advanced Matching Preferences</span>
-                                    <span title="These weights determine how strongly each factor influences member compatibility scoring."
-                                        style={{ fontSize: '0.75rem', cursor: 'help', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: '50%', width: 16, height: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, lineHeight: 1 }}>?</span>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: '#2563EB' }}>🧠 Advanced Matching Preferences</span>
+                                    <span title="Instead of setting exact percentages, you set relative importance. CollabCampus automatically calculates the final compatibility distribution behind the scenes."
+                                        style={{ fontSize: '0.72rem', cursor: 'help', color: '#9CA3AF', border: '1px solid #D1D5DB', borderRadius: '50%', width: 16, height: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, flexShrink: 0 }}>?</span>
                                 </div>
-                                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4, maxWidth: 420 }}>
-                                    Customize how compatibility scores are calculated. Weights must total 100%.
+                                <p style={{ fontSize: '0.78rem', color: '#6B7280', marginTop: 4, maxWidth: 440, lineHeight: 1.5 }}>
+                                    Choose which factors matter most. We automatically balance the percentages for you.
                                 </p>
                             </div>
-                            {/* Toggle */}
+                            {/* Master toggle */}
                             <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flexShrink: 0 }}>
-                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                                    {useCustomWeights ? 'Custom weights ON' : 'Using defaults'}
+                                <span style={{ fontSize: '0.79rem', color: '#6B7280', fontWeight: 500 }}>
+                                    {useMatching ? 'Custom' : 'Default'}
                                 </span>
-                                <div onClick={() => setUseCustomWeights(v => !v)}
-                                    style={{
-                                        width: 40, height: 22, borderRadius: 11,
-                                        background: useCustomWeights ? 'var(--accent)' : '#D1D5DB',
-                                        position: 'relative', transition: 'background 0.2s', cursor: 'pointer',
-                                    }}>
-                                    <div style={{
-                                        position: 'absolute', top: 3,
-                                        left: useCustomWeights ? 21 : 3,
-                                        width: 16, height: 16, borderRadius: '50%',
-                                        background: '#fff', transition: 'left 0.2s',
-                                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                                    }} />
+                                <div onClick={() => setUseMatching(v => !v)}
+                                    style={{ width: 40, height: 22, borderRadius: 11, background: useMatching ? '#2563EB' : '#D1D5DB', position: 'relative', cursor: 'pointer', transition: 'background 0.2s' }}>
+                                    <div style={{ position: 'absolute', top: 3, left: useMatching ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
                                 </div>
                             </label>
                         </div>
 
-                        {!useCustomWeights ? (
+                        {!useMatching ? (
                             <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 12, padding: '16px 20px', fontSize: '0.85rem', color: '#6B7280', textAlign: 'center' }}>
-                                Using default compatibility scoring (Skill 35%, Diversity 20%, Role 20%, Exp 15%, Gender 10%)
+                                Using default compatibility scoring — all factors weighted equally.
                             </div>
                         ) : (
                             <>
-                                {/* 2-column grid of factor sliders */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+                                {/* ── Preset Strategy Buttons ── */}
+                                <div>
+                                    <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#9CA3AF', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 8 }}>Matching Strategy Presets</div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                        {Object.entries(PRESETS).map(([key, p]) => (
+                                            <button key={key} type="button"
+                                                onClick={() => applyPreset(key)}
+                                                style={{
+                                                    padding: '7px 14px', borderRadius: 8, fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+                                                    border: `1.5px solid ${activePreset === key ? p.color : '#E5E7EB'}`,
+                                                    background: activePreset === key ? p.color + '15' : '#fff',
+                                                    color: activePreset === key ? p.color : '#374151',
+                                                    transition: 'all 0.15s ease',
+                                                }}>
+                                                {p.label}
+                                            </button>
+                                        ))}
+                                        {activePreset && (
+                                            <button type="button" onClick={() => { setPrefs(defaultPrefs()); setActivePreset(null); }}
+                                                style={{ padding: '7px 14px', borderRadius: 8, fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer', border: '1.5px solid #E5E7EB', background: '#fff', color: '#9CA3AF' }}>
+                                                ↺ Reset
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* ── Factor Cards (2-col grid) ── */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: 12 }}>
                                     {FACTORS.map(f => (
-                                        <FactorSlider key={f.key} factor={f} value={weights[f.key]} onChange={v => setW(f.key, v)} />
+                                        <FactorCard key={f.key} factor={f} pref={prefs[f.key]} onChange={v => setPref(f.key, v)} />
                                     ))}
                                 </div>
 
-                                {/* Reset + summary */}
-                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                    <button type="button" className="btn btn-outline btn-sm" onClick={resetWeights}>Reset to defaults</button>
-                                </div>
+                                {/* ── Distribution Preview ── */}
+                                <DistributionBar prefs={prefs} />
 
-                                <WeightsSummary weights={weights} />
-
-                                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: 8, padding: '10px 14px' }}>
-                                    💡 <strong>Tip:</strong> To prioritize technical skill, raise Skill Compatibility. For a well-rounded team, distribute weights more evenly across all factors.
+                                <p style={{ fontSize: '0.78rem', color: '#6B7280', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '10px 14px', lineHeight: 1.55 }}>
+                                    💡 <strong>Just tell us what matters more.</strong> CollabCampus handles the math — no percentages, no friction, no errors.
                                 </p>
                             </>
                         )}
@@ -427,8 +413,7 @@ export default function CreateTeam({ user }) {
                     </div>
 
                     <div style={{ display: 'flex', gap: 10 }}>
-                        <button type="submit" className="btn btn-primary" disabled={isSubmitDisabled}
-                            title={useCustomWeights && totalWeight !== 100 ? `Weights total ${totalWeight}% — must be 100%` : ''}>
+                        <button type="submit" className="btn btn-primary" disabled={loading}>
                             {loading ? <span className="spinner" /> : 'Post team listing'}
                         </button>
                         <button type="button" className="btn btn-ghost" onClick={() => navigate('/')}>Cancel</button>
