@@ -228,15 +228,24 @@ function SuggestionsPanel({ teamId }) {
 function RequestRow({ req, onAccept, onDecline }) {
     const [loading, setLoading] = useState(null);
     const [selectedUser, setSelectedUser] = useState(null);
-    const userObj = {
-        name: req.userName || req.userEmail,
-        email: req.userEmail,
-        dept: req.userDept,
-        year: req.userYear,
-        gender: req.userGender,
-        preferredRoles: [],
-        skillStrengths: {},
+    const [profileCache, setProfileCache] = useState(null);
+    const [fetchingProfile, setFetchingProfile] = useState(false);
+
+    const openProfile = async () => {
+        if (profileCache) { setSelectedUser(profileCache); return; }
+        setFetchingProfile(true);
+        try {
+            const data = await api(`/api/users/${encodeURIComponent(req.userEmail)}`);
+            setProfileCache(data);
+            setSelectedUser(data);
+        } catch {
+            // fallback: show basic info from request
+            const basic = { name: req.userName || req.userEmail, email: req.userEmail, dept: req.userDept, year: req.userYear, gender: req.userGender, preferredRoles: [], skillStrengths: {} };
+            setProfileCache(basic);
+            setSelectedUser(basic);
+        } finally { setFetchingProfile(false); }
     };
+
     const act = async action => {
         setLoading(action);
         try {
@@ -250,11 +259,11 @@ function RequestRow({ req, onAccept, onDecline }) {
     return (
         <>
             <div className="request-item">
-                <div className="request-info" style={{ cursor: 'pointer' }}
-                    onClick={() => setSelectedUser(userObj)}
+                <div className="request-info" style={{ cursor: fetchingProfile ? 'wait' : 'pointer' }}
+                    onClick={openProfile}
                     title="Click to view profile">
                     <strong style={{ color: 'var(--accent)', textDecoration: 'underline dotted' }}>
-                        {req.userName || req.userEmail}
+                        {req.userName || req.userEmail}{fetchingProfile ? ' …' : ''}
                     </strong>
                     <span>{req.userEmail}</span>
                     {req.userDept && <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{req.userDept}{req.userYear ? ` · Year ${req.userYear}` : ''}{req.userGender ? ` · ${req.userGender}` : ''}</span>}

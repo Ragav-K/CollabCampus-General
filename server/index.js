@@ -496,6 +496,27 @@ app.get("/api/teams/created/:email", async (req, res) => {
   }
 });
 
+// Get a user's public profile (used by RequestRow popover to show skills + roles)
+app.get("/api/users/:email", async (req, res) => {
+  try {
+    const email = decodeURIComponent(req.params.email).toLowerCase();
+    const user = await User.findOne({ email }, {
+      name: 1, email: 1, dept: 1, year: 1, gender: 1,
+      preferredRoles: 1, skillStrengths: 1,
+    }).lean();
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json({
+      name: user.name, email: user.email,
+      dept: user.dept, year: user.year, gender: user.gender,
+      preferredRoles: user.preferredRoles || [],
+      skillStrengths: user.skillStrengths ? Object.fromEntries(user.skillStrengths) : {},
+    });
+  } catch (err) {
+    console.error("Get user profile error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // Delete a team (and its requests)
 app.delete("/api/teams/:teamId", async (req, res) => {
   try {
