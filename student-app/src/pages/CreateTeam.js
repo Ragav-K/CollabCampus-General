@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 
 const GENDER_OPTIONS = ['No Preference', 'Male', 'Female'];
@@ -129,11 +129,17 @@ function DistributionBar({ prefs }) {
 // ── Main Form ────────────────────────────────────────────────
 export default function CreateTeam({ user }) {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
 
     const [form, setForm] = useState({
-        hackathonName: '', hackathonPlace: '', hackathonDate: '',
+        hackathonName: searchParams.get('hackathonName') || '',
+        hackathonPlace: searchParams.get('hackathonPlace') || '',
+        hackathonDate: searchParams.get('hackathonDate') || '',
         lastDate: '', problemStatement: '', maxMembers: '', preferredGender: 'No Preference',
     });
+
+    // If URL params provided, show a pre-fill banner
+    const prefilled = !!(searchParams.get('hackathonName'));
     const [skills, setSkills] = useState([]);
     const [skillInput, setSkillInput] = useState('');
     const [requiredRoles, setRequiredRoles] = useState([]);
@@ -188,6 +194,9 @@ export default function CreateTeam({ user }) {
         if (!form.hackathonName || !form.hackathonDate || !form.lastDate || !form.maxMembers) {
             setError('Please fill in all required fields.'); return;
         }
+        if (form.lastDate >= form.hackathonDate) {
+            setError('Application deadline must be before the hackathon date.'); return;
+        }
         if (Number(form.maxMembers) < 2) { setError('Team must have at least 2 members.'); return; }
         setLoading(true);
         try {
@@ -219,6 +228,12 @@ export default function CreateTeam({ user }) {
                     <p>Post your hackathon listing and let teammates find you.</p>
                 </div>
 
+                {prefilled && (
+                    <div className="alert" style={{ background: 'var(--accent-light)', border: '1px solid var(--accent)', borderRadius: 8, marginBottom: 20, fontSize: '0.85rem' }}>
+                        🏆 Creating team for <strong>{form.hackathonName}</strong>. You can edit the pre-filled details below.
+                    </div>
+                )}
+
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                     {error && <div className="alert alert-error">{error}</div>}
 
@@ -236,7 +251,12 @@ export default function CreateTeam({ user }) {
                             </div>
                             <div className="form-group">
                                 <label className="label" htmlFor="lastDate">Application deadline *</label>
-                                <input id="lastDate" type="date" className="input" value={form.lastDate} onChange={set('lastDate')} required />
+                                <input id="lastDate" type="date" className="input"
+                                    max={form.hackathonDate || undefined}
+                                    value={form.lastDate} onChange={set('lastDate')} required />
+                                {form.hackathonDate && form.lastDate && form.lastDate >= form.hackathonDate && (
+                                    <span className="error-msg">⚠️ Must be before the hackathon date</span>
+                                )}
                             </div>
                         </div>
                         <div className="form-group">

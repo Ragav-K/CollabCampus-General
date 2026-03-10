@@ -10,8 +10,10 @@ import ResetPassword from "./pages/ResetPassword";
 import CreateTeam from "./pages/CreateTeam";
 import JoinTeam from "./pages/JoinTeam";
 import CreatedTeams from "./pages/CreatedTeams";
-import RequestedTeams from "./pages/RequestedTeams";
+import Requests from "./pages/Requests";
 import Profile from "./pages/Profile";
+import AllHackathons from "./pages/AllHackathons";
+import HackathonDetails from "./pages/HackathonDetails";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -45,7 +47,7 @@ export default function App() {
         {/* Public / Home */}
         <Route path="/" element={<Home user={user} />} />
 
-        {/* Auth routes: pass setUser so Login/Signup update global state */}
+        {/* Auth routes */}
         <Route
           path="/login"
           element={user ? <Navigate to="/" replace /> : <Login setUser={setUser} />}
@@ -55,6 +57,10 @@ export default function App() {
           element={user ? <Navigate to="/" replace /> : <Signup setUser={setUser} />}
         />
         <Route path="/reset" element={<ResetPassword />} />
+
+        {/* Hackathon routes (public) */}
+        <Route path="/hackathons" element={<AllHackathons user={user} />} />
+        <Route path="/hackathons/:id" element={<HackathonDetails user={user} />} />
 
         {/* Protected routes */}
         <Route
@@ -69,9 +75,15 @@ export default function App() {
           path="/created"
           element={user ? <CreatedTeams user={user} /> : <Navigate to="/login" replace />}
         />
+        {/* New unified Requests page */}
+        <Route
+          path="/requests"
+          element={user ? <Requests user={user} /> : <Navigate to="/login" replace />}
+        />
+        {/* Old /requested route → redirect to /requests */}
         <Route
           path="/requested"
-          element={user ? <RequestedTeams user={user} /> : <Navigate to="/login" replace />}
+          element={<Navigate to="/requests" replace />}
         />
         <Route
           path="/profile"

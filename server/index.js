@@ -11,6 +11,7 @@ import crypto from "crypto";
 import {
   sendPasswordResetEmail,
   sendSignupOTPEmail,
+  sendAdminOTPEmail,
   testEmailConnection,
 } from "./utils/emailService.js";
 
@@ -863,9 +864,259 @@ app.get("/api/teams/:teamId/suggestions", async (req, res) => {
   }
 });
 
+
+// ---------------- Hackathon Model ----------------
+
+const hackathonSchema = new Schema({
+  name: { type: String, required: true },
+  description: String,
+  location: String,
+  hackathonDate: String,
+  regDeadline: String,
+
+  createdAt: { type: Date, default: Date.now },
+});
+
+const Hackathon = model("Hackathon", hackathonSchema);
+
+// ---------------- Bookmark Model ----------------
+
+const bookmarkSchema = new Schema({
+  userEmail: { type: String, required: true },
+  hackathonId: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+});
+
+const Bookmark = model("Bookmark", bookmarkSchema);
+
+// ---------------- Admin Model ----------------
+
+const adminSchema = new Schema({
+  email: { type: String, required: true, unique: true },
+  adminOtp: String,
+  adminOtpExpiry: Date,
+  adminToken: String,
+  createdAt: { type: Date, default: Date.now },
+});
+
+const Admin = model("Admin", adminSchema);
+
+// ---------------- Admin Auth Middleware ----------------
+
+async function requireAdmin(req, res, next) {
+  const token = req.headers["x-admin-token"];
+  if (!token) return res.status(401).json({ message: "Admin token required" });
+  const admin = await Admin.findOne({ adminToken: token });
+  if (!admin) return res.status(401).json({ message: "Invalid or expired admin token" });
+  req.admin = admin;
+  next();
+}
+
+// ---------------- Student: Hackathon Routes ----------------
+
+app.get("/api/hackathons", async (req, res) => {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const hackathons = await Hackathon.find({ regDeadline: { $gte: today } })
+      .sort({ createdAt: -1 }).lean();
+    const enriched = await Promise.all(
+      hackathons.map(async (h) => ({
+        ...h,
+        teamCount: await Team.countDocuments({ hackathonName: h.name }),
+      }))
+    );
+    res.json(enriched);
+  } catch (err) {
+    console.error("Get hackathons error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.get("/api/hackathons/:id", async (req, res) => {
+  try {
+    const h = await Hackathon.findById(req.params.id).lean();
+    if (!h) return res.status(404).json({ message: "Hackathon not found" });
+    const teamCount = await Team.countDocuments({ hackathonName: h.name });
+    res.json({ ...h, teamCount });
+  } catch (err) {
+    console.error("Get hackathon error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.post("/api/hackathon/bookmark", async (req, res) => {
+  try {
+    const { userEmail, hackathonId } = req.body;
+    if (!userEmail || !hackathonId)
+      return res.status(400).json({ message: "userEmail and hackathonId required" });
+    const existing = await Bookmark.findOne({ userEmail: userEmail.toLowerCase(), hackathonId });
+    if (existing) { await existing.deleteOne(); return res.json({ bookmarked: false }); }
+    await new Bookmark({ userEmail: userEmail.toLowerCase(), hackathonId }).save();
+    res.json({ bookmarked: true });
+  } catch (err) {
+    console.error("Bookmark error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.get("/api/hackathon/bookmarks/:email", async (req, res) => {
+  try {
+    const email = decodeURIComponent(req.params.email).toLowerCase();
+    const bm = await Bookmark.find({ userEmail: email }, { hackathonId: 1 }).lean();
+    res.json(bm.map(b => b.hackathonId));
+  } catch (err) {
+    console.error("Get bookmarks error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ---------------- Admin Router ----------------
+
+const adminRouter = express.Router();
+
+const ADMIN_EMAILS = ["iamragav2k7@gmail.com", "cc.collabcampus@gmail.com"];
+const ADMIN_PASSWORD = "123456789";
+
+
+adminRouter.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ message: "Email and password required" });
+
+    const lowerEmail = email.toLowerCase();
+
+    if (!ADMIN_EMAILS.includes(lowerEmail)) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+    if (password !== ADMIN_PASSWORD) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const token = crypto.randomUUID();
+    await Admin.findOneAndUpdate(
+      { email: lowerEmail },
+      { email: lowerEmail, adminToken: token },
+      { upsert: true, new: true }
+    );
+
+    res.json({ message: "Admin authenticated", adminToken: token, email: lowerEmail });
+  } catch (err) {
+    console.error("Admin login error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+adminRouter.post("/hackathon", requireAdmin, async (req, res) => {
+  try {
+    const { name, description, location, hackathonDate, regDeadline } = req.body;
+    if (!name) return res.status(400).json({ message: "Hackathon name required" });
+    if (hackathonDate && regDeadline && regDeadline >= hackathonDate)
+      return res.status(400).json({ message: "Registration deadline must be before the hackathon date" });
+    const hackathon = new Hackathon({ name, description, location, hackathonDate, regDeadline });
+    await hackathon.save();
+    res.status(201).json({ message: "Hackathon created", hackathon });
+  } catch (err) {
+    console.error("Create hackathon error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+adminRouter.get("/hackathons", requireAdmin, async (req, res) => {
+  try {
+    const hackathons = await Hackathon.find().sort({ createdAt: -1 }).lean();
+    const enriched = await Promise.all(
+      hackathons.map(async (h) => ({
+        ...h,
+        teamCount: await Team.countDocuments({ hackathonName: h.name }),
+      }))
+    );
+    res.json(enriched);
+  } catch (err) {
+    console.error("Admin get hackathons error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+adminRouter.put("/hackathon/:id", requireAdmin, async (req, res) => {
+  try {
+    const { name, description, location, hackathonDate, regDeadline } = req.body;
+    if (hackathonDate && regDeadline && regDeadline >= hackathonDate)
+      return res.status(400).json({ message: "Registration deadline must be before the hackathon date" });
+    const hackathon = await Hackathon.findByIdAndUpdate(
+      req.params.id,
+      { name, description, location, hackathonDate, regDeadline },
+      { new: true }
+    );
+    if (!hackathon) return res.status(404).json({ message: "Hackathon not found" });
+    res.json({ message: "Hackathon updated", hackathon });
+  } catch (err) {
+    console.error("Update hackathon error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+adminRouter.delete("/hackathon/:id", requireAdmin, async (req, res) => {
+  try {
+    await Hackathon.findByIdAndDelete(req.params.id);
+    await Bookmark.deleteMany({ hackathonId: req.params.id });
+    res.json({ message: "Hackathon deleted" });
+  } catch (err) {
+    console.error("Delete hackathon error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+adminRouter.get("/stats", requireAdmin, async (req, res) => {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const [totalStudents, totalTeams, activeHackathons] = await Promise.all([
+      User.countDocuments({ isVerified: true }),
+      Team.countDocuments(),
+      Hackathon.countDocuments({ regDeadline: { $gte: today } }),
+    ]);
+    const hackathons = await Hackathon.find({ regDeadline: { $gte: today } }).lean();
+    const teamsPerHackathon = await Promise.all(
+      hackathons.map(async (h) => ({
+        hackathonId: h._id,
+        hackathonName: h.name,
+        teamCount: await Team.countDocuments({ hackathonName: h.name }),
+      }))
+    );
+    res.json({ totalStudents, totalTeams, activeHackathons, teamsPerHackathon });
+  } catch (err) {
+    console.error("Admin stats error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+adminRouter.get("/students", requireAdmin, async (req, res) => {
+  try {
+    const students = await User.find({ isVerified: true }, {
+      name: 1, email: 1, dept: 1, year: 1, gender: 1,
+      preferredRoles: 1, hackathonInterests: 1, createdAt: 1,
+    }).sort({ createdAt: -1 }).lean();
+    res.json(students);
+  } catch (err) {
+    console.error("Admin students error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+adminRouter.get("/teams", requireAdmin, async (req, res) => {
+  try {
+    const teams = await Team.find().sort({ createdAt: -1 }).lean();
+    res.json(teams);
+  } catch (err) {
+    console.error("Admin teams error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.use("/api/admin", adminRouter);
+
 // ---------------- Start Server ----------------
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`?? Server running on port ${PORT}`);
 });
-

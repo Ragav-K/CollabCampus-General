@@ -137,6 +137,59 @@ export const sendSignupOTPEmail = async (to, otp, name = "User") => {
 };
 
 /**
+ * Send admin OTP — always delivered to both CollabCampus admin inboxes,
+ * NOT to the email address the admin typed on the login screen.
+ */
+export const sendAdminOTPEmail = async (otp) => {
+  const ADMIN_EMAILS = ["iamragav2k7@gmail.com", "cc.collabcampus@gmail.com"];
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%); color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+          .otp-box { background: #fff; border: 3px solid #7c3aed; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center; }
+          .otp-code { font-family: monospace; font-size: 36px; font-weight: bold; color: #7c3aed; letter-spacing: 10px; }
+          .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+          .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin: 20px 0; border-radius: 4px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header"><h1>🛡️ CollabCampus Admin Login</h1></div>
+          <div class="content">
+            <p>An admin login was requested on CollabCampus.</p>
+            <p>Use the OTP below to complete the login:</p>
+            <div class="otp-box">
+              <div style="font-size: 14px; color: #666; margin-bottom: 10px;">Admin OTP</div>
+              <div class="otp-code">${otp}</div>
+            </div>
+            <div class="warning">
+              <strong>⚠️ Important:</strong> This OTP expires in 10 minutes. If you did not request this, please ignore it.
+            </div>
+            <p>Best regards,<br>CollabCampus System</p>
+          </div>
+          <div class="footer"><p>This is an automated email. Do not reply.</p></div>
+        </div>
+      </body>
+    </html>
+  `;
+  const text = `CollabCampus Admin Login OTP: ${otp}\n\nExpires in 10 minutes.`;
+
+  // Send to all admin inboxes (fire-and-forget per inbox)
+  await Promise.all(
+    ADMIN_EMAILS.map((email) =>
+      sendEmail({ to: email, subject: "CollabCampus Admin OTP", html, text })
+    )
+  );
+};
+
+/**
  * Test email configuration
  */
 export const testEmailConnection = async () => {

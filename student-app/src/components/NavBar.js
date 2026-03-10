@@ -19,7 +19,8 @@ export default function NavBar({ user, onLogout }) {
                             <li><Link to="/join" className={active('/join')}>Browse Teams</Link></li>
                             <li><Link to="/create" className={active('/create')}>Create Team</Link></li>
                             <li><Link to="/created" className={active('/created')}>My Teams</Link></li>
-                            <li><Link to="/requested" className={active('/requested')}>Requests</Link></li>
+                            <li><Link to="/requests" className={active('/requests')}>Requests</Link></li>
+                            <li><Link to="/hackathons" className={active('/hackathons')}>Hackathons</Link></li>
                         </ul>
                         <div className="navbar__user">
                             <Link to="/profile" className={`navbar__user-name${active('/profile') ? ' active' : ''}`}

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 
 // ── Compat Badge ──────────────────────────────────────────────
@@ -230,6 +231,9 @@ function ApplyModal({ team, user, onClose, onApplied }) {
 
 // ── Main ───────────────────────────────────────────────────────
 export default function JoinTeam({ user }) {
+    const [searchParams] = useSearchParams();
+    const hackathonFilter = searchParams.get('hackathon') || '';
+
     const [teams, setTeams] = useState([]);
     const [scores, setScores] = useState({});
     const [scoringLoading, setScoringLoading] = useState(false);
@@ -239,6 +243,7 @@ export default function JoinTeam({ user }) {
     const [applyModal, setApplyModal] = useState(null);
     const [detailModal, setDetailModal] = useState(null);
     const [sortByScore, setSortByScore] = useState(true);
+    const [hackathonActive, setHackathonActive] = useState(!!hackathonFilter);
 
     const fetchTeams = useCallback(async () => {
         setLoading(true);
@@ -269,10 +274,13 @@ export default function JoinTeam({ user }) {
     useEffect(() => { fetchTeams(); }, [fetchTeams]);
     useEffect(() => { if (teams.length) fetchScores(teams); }, [teams, fetchScores]);
 
-    const filtered = teams.filter(t =>
-        !search || [t.hackathonName, t.leaderName, t.hackathonPlace, ...(t.skillsNeeded || [])]
-            .some(v => v?.toLowerCase().includes(search.toLowerCase()))
-    );
+    const filtered = teams.filter(t => {
+        const matchesHackathon = !hackathonActive || !hackathonFilter ||
+            (t.hackathonName || '').toLowerCase() === hackathonFilter.toLowerCase();
+        const matchesSearch = !search || [t.hackathonName, t.leaderName, t.hackathonPlace, ...(t.skillsNeeded || [])]
+            .some(v => v?.toLowerCase().includes(search.toLowerCase()));
+        return matchesHackathon && matchesSearch;
+    });
 
     const sorted = [...filtered].sort((a, b) => {
         if (!sortByScore) return 0;
@@ -303,6 +311,14 @@ export default function JoinTeam({ user }) {
                             value={search} onChange={e => setSearch(e.target.value)} />
                     </div>
                 </div>
+
+                {/* Hackathon filter banner */}
+                {hackathonFilter && hackathonActive && (
+                    <div style={{ background: 'var(--accent-light)', border: '1px solid var(--accent)', borderRadius: 8, padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                        <span>🏆 Showing teams for: <strong>{hackathonFilter}</strong></span>
+                        <button className="btn btn-outline btn-sm" onClick={() => setHackathonActive(false)}>Show all teams</button>
+                    </div>
+                )}
 
                 {loading ? (
                     <div className="loading-page"><span className="spinner" /> Loading teams…</div>
