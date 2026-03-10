@@ -10,8 +10,7 @@ export default function NavBar({ user, onLogout }) {
         <nav className="navbar">
             <div className="container navbar__inner">
                 <Link to="/" className="navbar__logo">
-                    <span className="navbar__logo-mark">CC</span>
-                    CollabCampus
+                    <img src="/CC NavBar Logo.jpeg" alt="CollabCampus" className="navbar__logo-img" />
                 </Link>
 
                 {user ? (
