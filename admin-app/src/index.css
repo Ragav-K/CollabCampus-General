@@ -1,4 +1,4 @@
-/* ── Reset ── */
+/* â”€â”€ Reset â”€â”€ */
 *,
 *::before,
 *::after {
@@ -7,13 +7,33 @@
     padding: 0;
 }
 
+:root {
+  --bg: #FFFFFF;
+  --surface: #F9FAFB;
+  --border: #E5E7EB;
+  --border-strong: #D1D5DB;
+  --text: #000000;
+  --text-muted: #374151;
+  --accent: #2563EB;
+  --accent-hover: #1D4ED8;
+  --accent-light: #EFF6FF;
+  --success: #10B981;
+  --success-light: #ECFDF5;
+  --gradient: linear-gradient(135deg, #2563EB, #10B981);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --transition: 200ms ease;
+}
+
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: #f4f4f7;
-    color: #18181b;
-    line-height: 1.6;
-    font-size: 15px;
-    -webkit-font-smoothing: antialiased;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
@@ -39,27 +59,28 @@ h4 {
     letter-spacing: -0.02em;
 }
 
-/* ── Admin Navbar ── */
+/* â”€â”€ Admin Navbar â”€â”€ */
 .admin-nav {
     position: sticky;
     top: 0;
     z-index: 100;
-    background: #1e1b4b;
-    color: #fff;
+    background: #FFFFFF;
+    color: var(--text);
     display: flex;
     align-items: center;
     gap: 24px;
     padding: 0 32px;
-    height: 58px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    height: 64px;
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
 }
 
 .admin-nav-brand {
     font-weight: 700;
-    font-size: 1rem;
+    font-size: 1.1rem;
     letter-spacing: -0.02em;
     margin-right: auto;
-    color: #e9e8ff;
+    color: var(--text);
 }
 
 .admin-nav-links {
@@ -69,51 +90,50 @@ h4 {
 }
 
 .nav-link {
-    color: rgba(255, 255, 255, 0.65);
-    padding: 6px 14px;
-    border-radius: 6px;
-    font-size: 0.875rem;
+    color: var(--text-muted);
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
     font-weight: 500;
-    transition: background 0.15s, color 0.15s;
+    transition: all var(--transition);
     text-decoration: none;
 }
 
 .nav-link:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.1);
-    text-decoration: none;
+    color: var(--accent);
 }
 
 .nav-link.active {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.15);
+    color: var(--accent);
+    background: var(--accent-light);
     font-weight: 600;
 }
 
 .admin-logout {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
     padding: 6px 14px;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     font-size: 0.8rem;
     cursor: pointer;
     font-family: inherit;
-    transition: background 0.15s;
+    transition: all var(--transition);
 }
 
 .admin-logout:hover {
-    background: rgba(255, 255, 255, 0.2);
-    color: #fff;
+    background: var(--surface);
+    color: var(--text);
+    border-color: var(--border-strong);
 }
 
-/* ── Admin Login ── */
+/* â”€â”€ Admin Login â”€â”€ */
 .admin-login-page {
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #1e1b4b 0%, #4c1d95 50%, #7c3aed 100%);
+    background: var(--gradient);
     padding: 24px;
 }
 
@@ -158,7 +178,7 @@ h4 {
     margin-bottom: 28px;
 }
 
-/* ── Page layout ── */
+/* â”€â”€ Page layout â”€â”€ */
 .admin-page {
     padding: 40px 0 80px;
     min-height: calc(100vh - 58px);
@@ -189,13 +209,13 @@ h4 {
     font-size: 0.875rem;
 }
 
-/* ── Cards ── */
+/* â”€â”€ Cards â”€â”€ */
 .admin-card {
-    background: #fff;
-    border: 1px solid #e4e4e7;
-    border-radius: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
     padding: 24px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    box-shadow: var(--shadow-sm);
 }
 
 .admin-card-title {
@@ -204,7 +224,7 @@ h4 {
     margin-bottom: 16px;
 }
 
-/* ── Stat Grid ── */
+/* â”€â”€ Stat Grid â”€â”€ */
 .stat-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -212,18 +232,18 @@ h4 {
 }
 
 .stat-card {
-    background: #fff;
-    border: 1px solid #e4e4e7;
-    border-radius: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
     padding: 28px 24px;
     text-align: center;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: var(--shadow-sm);
+    transition: all var(--transition);
 }
 
 .stat-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(124, 58, 237, 0.1);
+    box-shadow: var(--shadow);
 }
 
 .stat-icon {
@@ -234,7 +254,7 @@ h4 {
 .stat-value {
     font-size: 2.4rem;
     font-weight: 700;
-    color: #7c3aed;
+    color: var(--accent);
     line-height: 1;
     margin-bottom: 6px;
 }
@@ -245,7 +265,7 @@ h4 {
     font-weight: 500;
 }
 
-/* ── Table ── */
+/* â”€â”€ Table â”€â”€ */
 .admin-table {
     width: 100%;
     border-collapse: collapse;
@@ -278,7 +298,7 @@ h4 {
     background: #fafafa;
 }
 
-/* ── Badges ── */
+/* â”€â”€ Badges â”€â”€ */
 .admin-badge {
     display: inline-flex;
     align-items: center;
@@ -300,7 +320,7 @@ h4 {
     border: 1px solid #fecaca;
 }
 
-/* ── Buttons ── */
+/* â”€â”€ Buttons â”€â”€ */
 .admin-btn {
     display: inline-flex;
     align-items: center;
@@ -324,35 +344,37 @@ h4 {
 }
 
 .admin-btn-primary {
-    background: #7c3aed;
+    background: var(--accent);
     color: #fff;
-    border-color: #7c3aed;
+    border-color: var(--accent);
 }
 
 .admin-btn-primary:hover {
-    background: #6d28d9;
-    border-color: #6d28d9;
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
 }
 
 .admin-btn-outline {
     background: transparent;
-    color: #18181b;
-    border-color: #a1a1aa;
+    color: var(--text-muted);
+    border-color: var(--border);
 }
 
 .admin-btn-outline:hover {
-    background: #f4f4f5;
+    background: var(--surface);
+    border-color: var(--border-strong);
+    color: var(--text);
 }
 
 .admin-btn-ghost {
     background: transparent;
-    color: #71717a;
+    color: var(--text-muted);
     border-color: transparent;
 }
 
 .admin-btn-ghost:hover {
-    background: #f4f4f5;
-    color: #18181b;
+    background: var(--surface);
+    color: var(--text);
 }
 
 .admin-btn-danger {
@@ -367,10 +389,10 @@ h4 {
 
 .admin-btn-sm {
     font-size: 0.78rem;
-    padding: 5px 10px;
+    padding: 6px 12px;
 }
 
-/* ── Forms ── */
+/* â”€â”€ Forms â”€â”€ */
 .admin-form {
     display: flex;
     flex-direction: column;
@@ -399,14 +421,14 @@ h4 {
 .admin-textarea {
     font-family: inherit;
     font-size: 0.9rem;
-    color: #18181b;
+    color: var(--text);
     background: #fff;
-    border: 1.5px solid #e4e4e7;
-    border-radius: 8px;
-    padding: 9px 13px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
     outline: none;
     width: 100%;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition: all var(--transition);
 }
 
 .admin-textarea {
@@ -416,8 +438,8 @@ h4 {
 
 .admin-input:focus,
 .admin-textarea:focus {
-    border-color: #7c3aed;
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .admin-otp-input {
@@ -427,7 +449,7 @@ h4 {
     text-align: center;
 }
 
-/* ── Alerts ── */
+/* â”€â”€ Alerts â”€â”€ */
 .admin-alert {
     padding: 12px 16px;
     border-radius: 8px;
@@ -448,7 +470,7 @@ h4 {
     border: 1px solid #ddd6fe;
 }
 
-/* ── Spinner ── */
+/* â”€â”€ Spinner â”€â”€ */
 .admin-spinner {
     width: 18px;
     height: 18px;
@@ -471,7 +493,7 @@ h4 {
     border-top-color: #7c3aed;
 }
 
-/* ── Loading / Empty ── */
+/* â”€â”€ Loading / Empty â”€â”€ */
 .admin-loading {
     display: flex;
     align-items: center;
@@ -496,7 +518,7 @@ h4 {
     opacity: 0.5;
 }
 
-/* ── Modal ── */
+/* â”€â”€ Modal â”€â”€ */
 .admin-modal-overlay {
     position: fixed;
     inset: 0;
@@ -532,7 +554,7 @@ h4 {
     animation: slideUp 0.2s ease;
 }
 
-/* ── Responsive ── */
+/* â”€â”€ Responsive â”€â”€ */
 @media (max-width: 640px) {
     .admin-nav {
         padding: 0 16px;

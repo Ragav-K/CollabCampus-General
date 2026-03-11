@@ -23,19 +23,26 @@ const MONGO_URI = process.env.MONGO_URI;
 
 // ---------------- Middleware ----------------
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map(u => u.trim())
+const rawOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
   : process.env.FRONTEND_URL
     ? [process.env.FRONTEND_URL]
     : ['http://localhost:3000', 'http://localhost:3001'];
+
+// Clean up origins strictly (remove trailing slashes, trim spaces)
+const allowedOrigins = rawOrigins.map(u => u.trim().replace(/\/$/, ''));
 
 // Safe CORS
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      if (!origin) return callback(null, true);
+
+      const cleanOrigin = origin.replace(/\/$/, '');
+      if (allowedOrigins.includes(cleanOrigin) || allowedOrigins.includes('*')) {
         callback(null, true);
       } else {
+        console.error(`❌ CORS blocked origin: "${origin}". Current ALLOWED_ORIGINS mapping:`, allowedOrigins);
         callback(new Error('Not allowed by CORS'));
       }
     },
@@ -1004,7 +1011,7 @@ adminRouter.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const token = crypto.randomUUID();
+    const token = crypto.randomBytes(32).toString('hex');
     await Admin.findOneAndUpdate(
       { email: lowerEmail },
       { email: lowerEmail, adminToken: token },
@@ -1014,7 +1021,8 @@ adminRouter.post("/login", async (req, res) => {
     res.json({ message: "Admin authenticated", adminToken: token, email: lowerEmail });
   } catch (err) {
     console.error("Admin login error:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error(err.stack);
+    res.status(500).json({ message: "Server error: " + err.message });
   }
 });
 

@@ -12,7 +12,15 @@ export async function api(path, opts = {}) {
         },
         body: opts.body ? JSON.stringify(opts.body) : undefined,
     });
-    const data = await res.json();
+    const resClone = res.clone();
+    let data;
+    try {
+        data = await res.json();
+    } catch (e) {
+        const text = await resClone.text();
+        console.error('API Parse Error:', text);
+        throw new Error(`Invalid JSON response from server (Status: ${res.status})`);
+    }
     if (!res.ok) throw new Error(data.message || 'Request failed');
     return data;
 }

@@ -152,7 +152,7 @@ function TeamDetailModal({ team, user, onClose, onApply, isApplied }) {
                             {members.map(m => (
                                 <button key={m.email} onClick={() => setSelectedUser(m)} style={{ all: 'unset', cursor: 'pointer' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#f4f4f5', color: 'var(--text)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.78rem' }}>
+                                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--bg)', color: 'var(--text)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.78rem' }}>
                                             {m.name?.charAt(0)?.toUpperCase()}
                                         </div>
                                         <div>

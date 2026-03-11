@@ -8,19 +8,19 @@ const LEVEL_LABELS = ['', 'Beginner', 'Basic', 'Intermediate', 'Advanced', 'Expe
 
 // ── Factor definitions ──────────────────────────────────────
 const FACTORS = [
-    { key: 'skill', icon: '⌨️', title: 'Skill Compatibility', desc: 'Measures how well a member\'s technical skills match your required technologies (React, AI, Backend, ML, UI/UX, etc.).', defaultW: 8, defaultOn: true, color: '#2563EB' },
+    { key: 'skill', icon: '⌨️', title: 'Skill Compatibility', desc: 'Measures how well a member\'s technical skills match your required technologies (React, AI, Backend, ML, UI/UX, etc.).', defaultW: 8, defaultOn: true, color: 'var(--accent)' },
     { key: 'role', icon: '🪪', title: 'Role Fit', desc: 'Evaluates whether the member fits the specific role your team needs (Developer, Designer, Presenter, ML Engineer).', defaultW: 6, defaultOn: true, color: '#7C3AED' },
-    { key: 'diversity', icon: '🌐', title: 'Diversity Preference', desc: 'Encourages inclusion of members from different departments, academic years, or varied technical backgrounds.', defaultW: 4, defaultOn: true, color: '#059669' },
+    { key: 'diversity', icon: '🌐', title: 'Diversity Preference', desc: 'Encourages inclusion of members from different departments, academic years, or varied technical backgrounds.', defaultW: 4, defaultOn: true, color: 'var(--success)' },
 ];
 
 const PRESETS = {
-    skill: { label: '⌨️ Skill-Focused', color: '#2563EB', values: { skill: { e: true, w: 10 }, role: { e: true, w: 4 }, diversity: { e: false, w: 0 } } },
-    balanced: { label: '⚖️ Balanced Team', color: '#059669', values: { skill: { e: true, w: 6 }, role: { e: true, w: 6 }, diversity: { e: true, w: 6 } } },
+    skill: { label: '⌨️ Skill-Focused', color: 'var(--accent)', values: { skill: { e: true, w: 10 }, role: { e: true, w: 4 }, diversity: { e: false, w: 0 } } },
+    balanced: { label: '⚖️ Balanced Team', color: 'var(--success)', values: { skill: { e: true, w: 6 }, role: { e: true, w: 6 }, diversity: { e: true, w: 6 } } },
     diversity: { label: '🌐 Diversity-Focused', color: '#7C3AED', values: { skill: { e: true, w: 4 }, role: { e: true, w: 4 }, diversity: { e: true, w: 10 } } },
 };
 
 const priorityLabel = (w) => w === 0 ? 'Off' : w <= 3 ? 'Low' : w <= 6 ? 'Medium' : w <= 8 ? 'High' : 'Critical';
-const priorityColor = (w) => w === 0 ? '#9CA3AF' : w <= 3 ? '#D97706' : w <= 6 ? '#2563EB' : w <= 8 ? '#059669' : '#DC2626';
+const priorityColor = (w) => w === 0 ? 'var(--text-muted)' : w <= 3 ? '#D97706' : w <= 6 ? 'var(--accent)' : w <= 8 ? 'var(--success)' : '#DC2626';
 
 const defaultPrefs = () => Object.fromEntries(FACTORS.map(f => [f.key, { e: f.defaultOn, w: f.defaultW }]));
 
@@ -30,8 +30,8 @@ function FactorCard({ factor, pref, onChange }) {
 
     return (
         <div style={{
-            background: enabled ? '#fff' : '#F9FAFB',
-            border: `1.5px solid ${enabled ? '#E5E7EB' : '#F3F4F6'}`,
+            background: enabled ? '#fff' : 'var(--surface)',
+            border: `1.5px solid ${enabled ? 'var(--border)' : 'var(--bg)'}`,
             borderRadius: 14, padding: '18px 20px',
             opacity: enabled ? 1 : 0.6,
             transition: 'all 0.2s ease',
@@ -41,13 +41,13 @@ function FactorCard({ factor, pref, onChange }) {
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <span style={{ fontSize: '1.25rem', lineHeight: 1.2, filter: enabled ? 'none' : 'grayscale(1)' }}>{factor.icon}</span>
                     <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#111827' }}>{factor.title}</div>
-                        <div style={{ fontSize: '0.74rem', color: '#6B7280', lineHeight: 1.5, marginTop: 2 }}>{factor.desc}</div>
+                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text)' }}>{factor.title}</div>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.5, marginTop: 2 }}>{factor.desc}</div>
                     </div>
                 </div>
                 {/* Toggle */}
                 <div onClick={() => onChange({ e: !enabled, w: !enabled ? (factor.defaultW || 5) : 0 })}
-                    style={{ flexShrink: 0, width: 38, height: 21, borderRadius: 11, background: enabled ? factor.color : '#D1D5DB', position: 'relative', cursor: 'pointer', transition: 'background 0.2s' }}>
+                    style={{ flexShrink: 0, width: 38, height: 21, borderRadius: 11, background: enabled ? factor.color : 'var(--border-strong)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s' }}>
                     <div style={{ position: 'absolute', top: 3, left: enabled ? 19 : 3, width: 15, height: 15, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
                 </div>
             </div>
@@ -55,7 +55,7 @@ function FactorCard({ factor, pref, onChange }) {
             {/* Importance slider */}
             <div style={{ marginTop: 12, opacity: enabled ? 1 : 0.4, pointerEvents: enabled ? 'auto' : 'none' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <div style={{ display: 'flex', gap: 6, fontSize: '0.7rem', color: '#9CA3AF' }}>
+                    <div style={{ display: 'flex', gap: 6, fontSize: '0.7rem', color: 'var(--text-muted)' }}>
                         <span>Low</span><span>—</span><span>Medium</span><span>—</span><span>High</span>
                     </div>
                     <span style={{ fontSize: '0.78rem', fontWeight: 700, color: priorityColor(weight) }}>
@@ -66,7 +66,7 @@ function FactorCard({ factor, pref, onChange }) {
                     onChange={e => onChange({ e: enabled, w: Number(e.target.value) })}
                     style={{ accentColor: factor.color, width: '100%', cursor: 'pointer' }} />
                 {/* Mini fill bar */}
-                <div style={{ height: 3, borderRadius: 3, background: '#F3F4F6', marginTop: 4, overflow: 'hidden' }}>
+                <div style={{ height: 3, borderRadius: 3, background: 'var(--bg)', marginTop: 4, overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: `${weight * 10}%`, background: factor.color, borderRadius: 3, transition: 'width 0.2s ease' }} />
                 </div>
             </div>
@@ -83,11 +83,11 @@ function DistributionBar({ prefs }) {
     if (enabled.length === 0) return null;
 
     return (
-        <div style={{ background: '#F8FAFC', border: '1px solid #E5E7EB', borderRadius: 12, padding: '16px 18px' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <span style={{ fontWeight: 600, fontSize: '0.83rem', color: '#374151' }}>Compatibility Distribution Preview</span>
+                <span style={{ fontWeight: 600, fontSize: '0.83rem', color: 'var(--text-muted)' }}>Compatibility Distribution Preview</span>
                 <button type="button" onClick={() => setShowBreakdown(v => !v)}
-                    style={{ fontSize: '0.72rem', color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                    style={{ fontSize: '0.72rem', color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                     {showBreakdown ? 'Hide breakdown' : 'Preview breakdown'}
                 </button>
             </div>
@@ -108,7 +108,7 @@ function DistributionBar({ prefs }) {
                 {enabled.map(f => {
                     const pct = total > 0 ? Math.round(((prefs[f.key]?.w || 0) / total) * 100) : 0;
                     return (
-                        <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.73rem', color: '#6B7280' }}>
+                        <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.73rem', color: 'var(--text-muted)' }}>
                             <div style={{ width: 8, height: 8, borderRadius: 2, background: f.color, flexShrink: 0 }} />
                             <span>{f.title.split(' ')[0]}</span>
                             {showBreakdown && <span style={{ fontWeight: 700, color: f.color }}>{pct}%</span>}
@@ -118,7 +118,7 @@ function DistributionBar({ prefs }) {
             </div>
 
             {!showBreakdown && (
-                <p style={{ fontSize: '0.71rem', color: '#9CA3AF', marginTop: 8 }}>
+                <p style={{ fontSize: '0.71rem', color: 'var(--text-muted)', marginTop: 8 }}>
                     Final percentages are automatically calculated when your team is created.
                 </p>
             )}
@@ -349,9 +349,9 @@ export default function CreateTeam({ user }) {
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                             <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: '#2563EB' }}>🧠 Advanced Matching Preferences</span>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--accent)' }}>🧠 Advanced Matching Preferences</span>
                                     <span title="Instead of setting exact percentages, you set relative importance. CollabCampus automatically calculates the final compatibility distribution behind the scenes."
-                                        style={{ fontSize: '0.72rem', cursor: 'help', color: '#9CA3AF', border: '1px solid #D1D5DB', borderRadius: '50%', width: 16, height: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, flexShrink: 0 }}>?</span>
+                                        style={{ fontSize: '0.72rem', cursor: 'help', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: '50%', width: 16, height: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, flexShrink: 0 }}>?</span>
                                 </div>
                                 <p style={{ fontSize: '0.78rem', color: '#6B7280', marginTop: 4, maxWidth: 440, lineHeight: 1.5 }}>
                                     Choose which factors matter most. We automatically balance the percentages for you.
