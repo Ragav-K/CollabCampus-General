@@ -1,38 +1,40 @@
 // server/utils/emailService.js
-// Uses Resend API — consistent with .env configuration.
+// Uses Brevo Transactional Email REST API (api.brevo.com)
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL = process.env.EMAIL_FROM || "CollabCampus <onboarding@resend.dev>";
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || "a2bcf0001@smtp-brevo.com";
+const SENDER_NAME  = process.env.BREVO_SENDER_NAME  || "CollabCampus";
 
 async function sendEmail({ to, subject, html, text }) {
-  if (!RESEND_API_KEY || RESEND_API_KEY === 're_your_api_key_here') {
-    console.warn("⚠️ RESEND_API_KEY not set or still using placeholder. Cannot send email.");
+  if (!BREVO_API_KEY) {
+    console.warn("⚠️ BREVO_API_KEY not set. Cannot send email.");
     throw new Error("Email service not configured");
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${RESEND_API_KEY}`,
+      "api-key": BREVO_API_KEY,
       "Content-Type": "application/json",
+      "Accept": "application/json",
     },
     body: JSON.stringify({
-      from: FROM_EMAIL,
-      to: [to],
+      sender: { name: SENDER_NAME, email: SENDER_EMAIL },
+      to: [{ email: to }],
       subject,
-      html,
-      text,
+      htmlContent: html,
+      textContent: text,
     }),
   });
 
   const data = await response.json();
 
   if (!response.ok) {
-    console.error("❌ Resend API error:", data);
-    throw new Error(data.message || "Failed to send email");
+    console.error("❌ Brevo API error:", data);
+    throw new Error(data.message || "Failed to send email via Brevo");
   }
 
-  console.log("✅ Email sent via Resend:", data.id);
+  console.log("✅ Email sent via Brevo API:", data.messageId);
   return data;
 }
 
@@ -134,8 +136,7 @@ export const sendSignupOTPEmail = async (to, otp, name = "User") => {
 };
 
 /**
- * Send admin OTP — always delivered to both CollabCampus admin inboxes,
- * NOT to the email address the admin typed on the login screen.
+ * Send admin OTP — always delivered to both CollabCampus admin inboxes.
  */
 export const sendAdminOTPEmail = async (otp) => {
   const ADMIN_EMAILS = ["iamragav2k7@gmail.com", "cc.collabcampus@gmail.com"];
@@ -178,7 +179,6 @@ export const sendAdminOTPEmail = async (otp) => {
   `;
   const text = `CollabCampus Admin Login OTP: ${otp}\n\nExpires in 10 minutes.`;
 
-  // Send to all admin inboxes (fire-and-forget per inbox)
   await Promise.all(
     ADMIN_EMAILS.map((email) =>
       sendEmail({ to: email, subject: "CollabCampus Admin OTP", html, text })
@@ -190,24 +190,24 @@ export const sendAdminOTPEmail = async (otp) => {
  * Test email configuration
  */
 export const testEmailConnection = async () => {
-  if (!RESEND_API_KEY || RESEND_API_KEY === 're_your_api_key_here') {
-    return { success: false, message: "RESEND_API_KEY not configured" };
+  if (!BREVO_API_KEY) {
+    return { success: false, message: "BREVO_API_KEY not configured" };
   }
 
   try {
-    // Check API key validity by fetching domain list or similar (Resend doesn't have a simple /account check)
-    const response = await fetch("https://api.resend.com/domains", {
+    const response = await fetch("https://api.brevo.com/v3/account", {
       headers: {
-        "Authorization": `Bearer ${RESEND_API_KEY}`,
+        "api-key": BREVO_API_KEY,
         "Accept": "application/json",
       },
     });
 
     if (response.ok) {
-      return { success: true, message: "Email service (Resend) is configured" };
+      const data = await response.json();
+      return { success: true, message: `Brevo connected: ${data.email || "OK"}` };
     } else {
       const data = await response.json();
-      return { success: false, message: data.message || "Resend API error" };
+      return { success: false, message: data.message || "Brevo API error" };
     }
   } catch (error) {
     return { success: false, message: `Error: ${error.message}` };
