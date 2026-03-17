@@ -1,11 +1,12 @@
 // server/utils/emailService.js
 // Uses Brevo Transactional Email REST API (api.brevo.com)
 
-const BREVO_API_KEY = process.env.BREVO_API_KEY;
-const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || "a2bcf0001@smtp-brevo.com";
-const SENDER_NAME  = process.env.BREVO_SENDER_NAME  || "CollabCampus";
-
 async function sendEmail({ to, subject, html, text }) {
+  // Read env variables inside the function to avoid ESM import hoisting issues
+  const BREVO_API_KEY = process.env.BREVO_API_KEY;
+  const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || "cc.collabcampus@gmail.com";
+  const SENDER_NAME = process.env.BREVO_SENDER_NAME || "CollabCampus";
+
   if (!BREVO_API_KEY) {
     console.warn("⚠️ BREVO_API_KEY not set. Cannot send email.");
     throw new Error("Email service not configured");
@@ -190,6 +191,8 @@ export const sendAdminOTPEmail = async (otp) => {
  * Test email configuration
  */
 export const testEmailConnection = async () => {
+  const BREVO_API_KEY = process.env.BREVO_API_KEY;
+
   if (!BREVO_API_KEY) {
     return { success: false, message: "BREVO_API_KEY not configured" };
   }
